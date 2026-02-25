@@ -14,4 +14,5 @@
 - [x] Wire Gemini API call from AI Assistant screen
 - [x] Add local AsyncStorage persistence for documents
 - [x] Polish UI: typography, spacing, shadows
-- [ ] Create interactive showcase webpage
+- [x] Create interactive showcase webpage
+- [x] Fix Android APK build error: react-native-gesture-handler Gradle dependency resolution failure
