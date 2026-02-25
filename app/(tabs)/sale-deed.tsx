@@ -1,290 +1,290 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
-  ScrollView, Text, View, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator
+  View, Text, TextInput, TouchableOpacity, FlatList,
+  StyleSheet, Modal, ScrollView, Alert, ActivityIndicator,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { trpc } from "@/lib/trpc";
+import { exportToExcel } from "@/lib/excel-export";
 
-interface SaleDeedForm {
+interface FormState {
   sellerName: string;
-  sellerAddress: string;
-  buyerName: string;
-  buyerAddress: string;
-  propertyAddress: string;
-  saleAmount: string;
-  advanceAmount: string;
-  executionDate: string;
+  purchaserName: string;
+  propertyDetails: string;
+  sroOffice: string;
+  saleDeedNumber: string;
+  saleDeedPayment: string;
+  saleDeedPaymentReference: string;
 }
 
-const EMPTY_FORM: SaleDeedForm = {
-  sellerName: "",
-  sellerAddress: "",
-  buyerName: "",
-  buyerAddress: "",
-  propertyAddress: "",
-  saleAmount: "",
-  advanceAmount: "",
-  executionDate: "",
+const EMPTY_FORM: FormState = {
+  sellerName: "", purchaserName: "", propertyDetails: "",
+  sroOffice: "", saleDeedNumber: "", saleDeedPayment: "",
+  saleDeedPaymentReference: "",
 };
 
 export default function SaleDeedScreen() {
   const colors = useColors();
-  const [form, setForm] = useState<SaleDeedForm>(EMPTY_FORM);
-  const [generated, setGenerated] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const update = (key: keyof SaleDeedForm, value: string) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  const { data: records = [], isLoading, refetch } = trpc.saleDeeds.list.useQuery();
+  const createMutation = trpc.saleDeeds.create.useMutation({
+    onSuccess: () => { refetch(); setModalVisible(false); setForm(EMPTY_FORM); },
+  });
+  const deleteMutation = trpc.saleDeeds.delete.useMutation({ onSuccess: () => refetch() });
 
-  const handleGenerate = async () => {
-    if (!form.sellerName || !form.buyerName || !form.propertyAddress || !form.saleAmount) {
-      Alert.alert("Missing Fields", "Please fill in Seller Name, Buyer Name, Property Address, and Sale Amount.");
-      return;
+  const filtered = records.filter((r) =>
+    r.sellerName.toLowerCase().includes(search.toLowerCase()) ||
+    r.purchaserName.toLowerCase().includes(search.toLowerCase()) ||
+    (r.saleDeedNumber || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  const set = (key: keyof FormState) => (v: string) => setForm((f) => ({ ...f, [key]: v }));
+
+  const handleSave = useCallback(async () => {
+    if (!form.sellerName || !form.purchaserName || !form.propertyDetails) {
+      Alert.alert("Required", "Please fill Seller Name, Purchaser Name, and Property Details."); return;
     }
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    const today = form.executionDate || new Date().toLocaleDateString("en-IN");
-    const balanceAmount = form.saleAmount && form.advanceAmount
-      ? `₹ ${(parseFloat(form.saleAmount.replace(/,/g, "")) - parseFloat(form.advanceAmount.replace(/,/g, ""))).toLocaleString("en-IN")}`
-      : "As agreed";
+    setSaving(true);
+    try { await createMutation.mutateAsync(form); }
+    catch (e: any) { Alert.alert("Error", e.message || "Failed to save."); }
+    finally { setSaving(false); }
+  }, [form]);
 
-    const doc = `SALE DEED
-═══════════════════════════════════════
-
-This Sale Deed is executed on ${today}
-
-BETWEEN
-
-THE VENDOR (SELLER):
-Name    : ${form.sellerName}
-Address : ${form.sellerAddress || "As per records"}
-(hereinafter referred to as "the Vendor")
-
-AND
-
-THE PURCHASER (BUYER):
-Name    : ${form.buyerName}
-Address : ${form.buyerAddress || "As per records"}
-(hereinafter referred to as "the Purchaser")
-
-RECITALS
-───────────────────────────────────────
-The Vendor is the absolute owner of the property described hereunder and has agreed to sell the same to the Purchaser for the consideration mentioned herein.
-
-SCHEDULE OF PROPERTY
-───────────────────────────────────────
-${form.propertyAddress}
-
-CONSIDERATION
-───────────────────────────────────────
-Total Sale Amount  : ₹ ${form.saleAmount}
-Advance Paid       : ₹ ${form.advanceAmount || "0"}
-Balance Payable    : ${balanceAmount}
-
-TERMS AND CONDITIONS
-───────────────────────────────────────
-1. The Vendor hereby sells, transfers, and conveys the above-described property to the Purchaser.
-2. The Vendor confirms that the property is free from all encumbrances, liens, and charges.
-3. The Vendor shall hand over vacant possession of the property upon receipt of full consideration.
-4. The Purchaser shall bear all stamp duty and registration charges.
-5. This deed is subject to the provisions of the Transfer of Property Act, 1882 and Registration Act, 1908.
-6. The Vendor warrants the title to the property and shall defend the same against all claims.
-
-IN WITNESS WHEREOF, the parties have executed this deed on the date first mentioned above.
-
-VENDOR                          PURCHASER
-${form.sellerName}              ${form.buyerName}
-
-WITNESSES:
-1. ___________________________
-2. ___________________________
-
-Prepared by:
-Advocate Satish Patel
-Shreeji Associates
-`;
-    setGenerated(doc);
-    setLoading(false);
+  const handleDelete = (id: number) => {
+    Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate({ id }) },
+    ]);
   };
 
-  const handleClear = () => {
-    setForm(EMPTY_FORM);
-    setGenerated(null);
+  const handleExport = () => {
+    const exportData = records.map((r) => ({
+      "Seller Name": r.sellerName,
+      "Purchaser Name": r.purchaserName,
+      "Property Details": r.propertyDetails,
+      "SRO Office": r.sroOffice || "",
+      "Sale Deed Number": r.saleDeedNumber || "",
+      "Sale Deed Payment": r.saleDeedPayment || "",
+      "Payment Reference": r.saleDeedPaymentReference || "",
+      "Date Added": new Date(r.createdAt).toLocaleDateString("en-IN"),
+    }));
+    exportToExcel(exportData, "Sale Deeds", "SaleDeeds_ShreejiAssociates");
   };
 
   return (
-    <ScreenContainer containerClassName="bg-primary">
+    <ScreenContainer>
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <IconSymbol name="doc.badge.plus" size={22} color="#FFFFFF" />
-        <Text style={styles.headerTitle}>Sale Deed</Text>
+        <View>
+          <Text style={styles.headerTitle}>Sale Deeds</Text>
+          <Text style={styles.headerSub}>{records.length} records</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
+            onPress={handleExport} activeOpacity={0.8}
+          >
+            <IconSymbol name="arrow.down.doc.fill" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: colors.accent }]}
+            onPress={() => setModalVisible(true)} activeOpacity={0.85}
+          >
+            <IconSymbol name="plus" size={18} color="#1A3C8F" />
+            <Text style={[styles.addBtnText, { color: "#1A3C8F" }]}>Add</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView
-        style={[styles.content, { backgroundColor: colors.background }]}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {!generated ? (
-          <>
-            <Text style={[styles.subtitle, { color: colors.muted }]}>
-              Draft a sale deed / conveyance document
-            </Text>
+      {/* Search */}
+      <View style={[styles.searchBar, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <IconSymbol name="magnifyingglass" size={16} color={colors.muted} />
+        <TextInput
+          value={search} onChangeText={setSearch}
+          placeholder="Search by seller, purchaser, deed no..."
+          placeholderTextColor={colors.muted}
+          style={[styles.searchInput, { color: colors.foreground }]}
+        />
+      </View>
 
-            {/* Seller */}
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Seller (Vendor)</Text>
-              <InputField label="Seller Name *" value={form.sellerName}
-                onChangeText={(v) => update("sellerName", v)} placeholder="Full name of seller" colors={colors} />
-              <InputField label="Seller Address" value={form.sellerAddress}
-                onChangeText={(v) => update("sellerAddress", v)} placeholder="Complete address" multiline colors={colors} />
-            </View>
+      {/* Records List */}
+      {isLoading ? (
+        <View style={styles.center}><ActivityIndicator color={colors.primary} size="large" /></View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.center}>
+          <IconSymbol name="doc.plaintext" size={48} color={colors.border} />
+          <Text style={[styles.emptyText, { color: colors.muted }]}>No records yet</Text>
+          <Text style={[styles.emptySubText, { color: colors.muted }]}>Tap "Add" to create a sale deed entry</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.list}
+          renderItem={({ item }) => {
+            const expanded = expandedId === item.id;
+            return (
+              <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TouchableOpacity onPress={() => setExpandedId(expanded ? null : item.id)} activeOpacity={0.8}>
+                  <View style={styles.cardHeader}>
+                    <View style={[styles.badge, { backgroundColor: colors.accent + "30" }]}>
+                      <IconSymbol name="doc.plaintext" size={12} color={colors.accent} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.cardParty, { color: colors.foreground }]} numberOfLines={1}>{item.sellerName}</Text>
+                      <Text style={[styles.cardSub, { color: colors.muted }]} numberOfLines={1}>→ {item.purchaserName}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn} activeOpacity={0.7}>
+                      <IconSymbol name="trash" size={15} color={colors.error} />
+                    </TouchableOpacity>
+                    <IconSymbol name={expanded ? "chevron.up" : "chevron.down"} size={14} color={colors.muted} />
+                  </View>
+                  <View style={styles.cardRow}>
+                    <IconSymbol name="building.2" size={13} color={colors.muted} />
+                    <Text style={[styles.cardMeta, { color: colors.muted }]}>{item.sroOffice || "SRO not set"}</Text>
+                    <Text style={[styles.cardDate, { color: colors.muted }]}>
+                      {new Date(item.createdAt).toLocaleDateString("en-IN")}
+                    </Text>
+                  </View>
+                  {item.saleDeedNumber ? (
+                    <View style={styles.cardRow}>
+                      <IconSymbol name="number" size={13} color={colors.muted} />
+                      <Text style={[styles.cardMeta, { color: colors.muted }]}>Deed No: {item.saleDeedNumber}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
 
-            {/* Buyer */}
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Buyer (Purchaser)</Text>
-              <InputField label="Buyer Name *" value={form.buyerName}
-                onChangeText={(v) => update("buyerName", v)} placeholder="Full name of buyer" colors={colors} />
-              <InputField label="Buyer Address" value={form.buyerAddress}
-                onChangeText={(v) => update("buyerAddress", v)} placeholder="Complete address" multiline colors={colors} />
-            </View>
-
-            {/* Property */}
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Property Details</Text>
-              <InputField label="Property Address / Schedule Description *" value={form.propertyAddress}
-                onChangeText={(v) => update("propertyAddress", v)}
-                placeholder="Survey No., Plot No., area, location, boundaries..." multiline numberOfLines={4} colors={colors} />
-            </View>
-
-            {/* Consideration */}
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.cardTitle, { color: colors.foreground }]}>Consideration</Text>
-              <View style={styles.row}>
-                <View style={{ flex: 1 }}>
-                  <InputField label="Sale Amount (₹) *" value={form.saleAmount}
-                    onChangeText={(v) => update("saleAmount", v)} placeholder="e.g., 2500000" keyboardType="numeric" colors={colors} />
-                </View>
-                <View style={{ width: 10 }} />
-                <View style={{ flex: 1 }}>
-                  <InputField label="Advance Amount (₹)" value={form.advanceAmount}
-                    onChangeText={(v) => update("advanceAmount", v)} placeholder="e.g., 500000" keyboardType="numeric" colors={colors} />
-                </View>
+                {expanded && (
+                  <View style={[styles.expandedSection, { borderTopColor: colors.border }]}>
+                    <DetailRow label="Property Details" value={item.propertyDetails} colors={colors} />
+                    {item.saleDeedPayment ? <DetailRow label="Sale Deed Payment" value={item.saleDeedPayment} colors={colors} /> : null}
+                    {item.saleDeedPaymentReference ? <DetailRow label="Payment Reference" value={item.saleDeedPaymentReference} colors={colors} /> : null}
+                  </View>
+                )}
               </View>
-              <InputField label="Execution Date" value={form.executionDate}
-                onChangeText={(v) => update("executionDate", v)} placeholder="DD/MM/YYYY" colors={colors} />
-            </View>
+            );
+          }}
+        />
+      )}
 
-            {/* Upload hint */}
-            <View style={[styles.uploadHint, { backgroundColor: colors.primary + "10", borderColor: colors.primary + "30" }]}>
-              <IconSymbol name="arrow.up.doc.fill" size={16} color={colors.primary} />
-              <Text style={[styles.uploadHintText, { color: colors.primary }]}>
-                Reference documents can be attached after generation
-              </Text>
+      {/* Add Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Sale Deed</Text>
+              <TouchableOpacity onPress={() => { setModalVisible(false); setForm(EMPTY_FORM); }} activeOpacity={0.7}>
+                <IconSymbol name="xmark.circle.fill" size={26} color={colors.muted} />
+              </TouchableOpacity>
             </View>
+            <ScrollView contentContainerStyle={styles.modalBody} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <SectionTitle title="Parties" colors={colors} />
+              <FormField label="Seller Name *" value={form.sellerName} onChangeText={set("sellerName")} placeholder="Full name of seller / vendor" colors={colors} />
+              <FormField label="Purchaser Name *" value={form.purchaserName} onChangeText={set("purchaserName")} placeholder="Full name of purchaser / buyer" colors={colors} />
 
-            <TouchableOpacity
-              style={[styles.generateBtn, { backgroundColor: colors.accent }]}
-              onPress={handleGenerate}
-              activeOpacity={0.85}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#1A3C8F" />
-              ) : (
-                <>
-                  <IconSymbol name="doc.fill" size={18} color="#1A3C8F" />
-                  <Text style={styles.generateBtnText}>Generate Sale Deed</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <View style={[styles.reportHeader, { backgroundColor: colors.success + "15", borderColor: colors.success }]}>
-              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
-              <Text style={[styles.reportHeaderText, { color: colors.success }]}>
-                Sale Deed Generated Successfully
-              </Text>
-            </View>
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <Text style={[styles.reportText, { color: colors.foreground }]}>{generated}</Text>
-            </View>
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                onPress={() => Alert.alert("Print", "Printing coming soon.")} activeOpacity={0.85}>
-                <IconSymbol name="printer.fill" size={16} color="#FFFFFF" />
-                <Text style={styles.actionBtnText}>Print</Text>
+              <SectionTitle title="Property Details" colors={colors} />
+              <FormField label="Property Details *" value={form.propertyDetails} onChangeText={set("propertyDetails")} placeholder="Survey no, plot no, address, area, boundaries..." colors={colors} multiline />
+
+              <SectionTitle title="Registration Details" colors={colors} />
+              <FormField label="SRO Office" value={form.sroOffice} onChangeText={set("sroOffice")} placeholder="e.g. SRO Ahmedabad-1" colors={colors} />
+              <FormField label="Sale Deed Number" value={form.saleDeedNumber} onChangeText={set("saleDeedNumber")} placeholder="e.g. SD-2024-001" colors={colors} />
+              <FormField label="Sale Deed Payment" value={form.saleDeedPayment} onChangeText={set("saleDeedPayment")} placeholder="Stamp duty, registration fee, total amount..." colors={colors} multiline />
+              <FormField label="Sale Deed Payment Reference" value={form.saleDeedPaymentReference} onChangeText={set("saleDeedPaymentReference")} placeholder="Challan no, UTR, transaction ID..." colors={colors} />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.primary }]}
+                onPress={handleSave} disabled={saving} activeOpacity={0.85}
+              >
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Record</Text>}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.accent }]}
-                onPress={() => Alert.alert("Share", "Sharing coming soon.")} activeOpacity={0.85}>
-                <IconSymbol name="square.and.arrow.up" size={16} color="#1A3C8F" />
-                <Text style={[styles.actionBtnText, { color: "#1A3C8F" }]}>Share</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.border }]}
-                onPress={handleClear} activeOpacity={0.85}>
-                <IconSymbol name="plus" size={16} color={colors.foreground} />
-                <Text style={[styles.actionBtnText, { color: colors.foreground }]}>New</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-        <View style={{ height: 20 }} />
-      </ScrollView>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
 
-function InputField({
-  label, value, onChangeText, placeholder, multiline, numberOfLines, keyboardType, colors,
-}: {
-  label: string; value: string; onChangeText: (v: string) => void;
-  placeholder?: string; multiline?: boolean; numberOfLines?: number;
-  keyboardType?: "default" | "numeric"; colors: any;
-}) {
+function SectionTitle({ title, colors }: { title: string; colors: any }) {
   return (
-    <View style={styles.inputGroup}>
-      <Text style={[styles.inputLabel, { color: colors.muted }]}>{label}</Text>
+    <View style={[styles.sectionTitle, { borderBottomColor: colors.border }]}>
+      <Text style={[styles.sectionTitleText, { color: colors.primary }]}>{title}</Text>
+    </View>
+  );
+}
+
+function DetailRow({ label, value, colors }: { label: string; value: string; colors: any }) {
+  return (
+    <View style={styles.detailRow}>
+      <Text style={[styles.detailLabel, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.detailValue, { color: colors.foreground }]}>{value}</Text>
+    </View>
+  );
+}
+
+function FormField({ label, value, onChangeText, placeholder, colors, multiline, keyboardType }: any) {
+  return (
+    <View style={styles.fieldGroup}>
+      <Text style={[styles.fieldLabel, { color: colors.foreground }]}>{label}</Text>
       <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.muted + "80"}
-        multiline={multiline}
-        numberOfLines={numberOfLines}
-        keyboardType={keyboardType || "default"}
+        value={value} onChangeText={onChangeText} placeholder={placeholder}
+        placeholderTextColor={colors.muted + "80"} keyboardType={keyboardType || "default"}
         style={[
-          styles.input,
-          { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background },
-          multiline && { height: numberOfLines ? numberOfLines * 22 + 16 : 80, textAlignVertical: "top" },
+          styles.fieldInput,
+          { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface },
+          multiline && styles.fieldInputMulti,
         ]}
+        multiline={multiline} numberOfLines={multiline ? 3 : 1}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 18 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#FFFFFF" },
-  content: { flex: 1, borderTopLeftRadius: 20, borderTopRightRadius: 20, marginTop: -8 },
-  scrollContent: { padding: 16, paddingTop: 18 },
-  subtitle: { fontSize: 13, marginBottom: 16 },
-  card: { borderRadius: 14, padding: 16, marginBottom: 14, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  cardTitle: { fontSize: 15, fontWeight: "700", marginBottom: 14 },
-  inputGroup: { marginBottom: 12 },
-  inputLabel: { fontSize: 12, fontWeight: "600", marginBottom: 5, letterSpacing: 0.3 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14 },
-  row: { flexDirection: "row" },
-  uploadHint: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 14 },
-  uploadHintText: { fontSize: 12, fontWeight: "500", flex: 1 },
-  generateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 15, borderRadius: 14, marginTop: 4, marginBottom: 8 },
-  generateBtnText: { fontSize: 16, fontWeight: "700", color: "#1A3C8F" },
-  reportHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 14 },
-  reportHeaderText: { fontSize: 14, fontWeight: "600" },
-  reportText: { fontSize: 12, fontFamily: "monospace", lineHeight: 18 },
-  actionRow: { flexDirection: "row", gap: 10, marginTop: 4 },
-  actionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 12 },
-  actionBtnText: { fontSize: 13, fontWeight: "600", color: "#FFFFFF" },
+  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 2 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  addBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  addBtnText: { fontSize: 14, fontWeight: "700" },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14 },
+  list: { paddingHorizontal: 16, paddingBottom: 24 },
+  card: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 12 },
+  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 8 },
+  badge: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  cardParty: { fontSize: 15, fontWeight: "700" },
+  cardSub: { fontSize: 12, marginTop: 1 },
+  deleteBtn: { padding: 4 },
+  cardRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 },
+  cardMeta: { fontSize: 13, flex: 1 },
+  cardDate: { fontSize: 11 },
+  expandedSection: { marginTop: 12, paddingTop: 12, borderTopWidth: 0.5, gap: 8 },
+  detailRow: { gap: 2 },
+  detailLabel: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 },
+  detailValue: { fontSize: 13, lineHeight: 18 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+  emptyText: { fontSize: 16, fontWeight: "600" },
+  emptySubText: { fontSize: 13, textAlign: "center", paddingHorizontal: 32 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  modalSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "95%" },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 0.5 },
+  modalTitle: { fontSize: 18, fontWeight: "700" },
+  modalBody: { padding: 20, paddingBottom: 40 },
+  sectionTitle: { borderBottomWidth: 0.5, paddingBottom: 6, marginBottom: 14, marginTop: 8 },
+  sectionTitleText: { fontSize: 12, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.8 },
+  fieldGroup: { marginBottom: 14 },
+  fieldLabel: { fontSize: 13, fontWeight: "600", marginBottom: 6 },
+  fieldInput: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14 },
+  fieldInputMulti: { height: 80, textAlignVertical: "top" },
+  saveBtn: { borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 8 },
+  saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 });

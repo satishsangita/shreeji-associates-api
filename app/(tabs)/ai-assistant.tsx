@@ -2,11 +2,11 @@ import { useState, useRef, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
-  Alert
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { trpc } from "@/lib/trpc";
 
 interface ChatMessage {
   id: string;
@@ -14,26 +14,6 @@ interface ChatMessage {
   content: string;
   timestamp: number;
 }
-
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
-const GEMINI_MODEL = "gemini-2.0-flash";
-
-const SYSTEM_PROMPT = `You are an expert AI Legal Assistant specializing in Indian Law. You are knowledgeable about:
-- Bharatiya Nyaya Sanhita (BNS) 2023
-- Bharatiya Nagarik Suraksha Sanhita (BNSS) 2023
-- Indian Penal Code (IPC) 1860
-- Code of Criminal Procedure (CrPC) 1973
-- Transfer of Property Act 1882
-- Registration Act 1908
-- Indian Contract Act 1872
-- Negotiable Instruments Act (NI Act) - especially Section 138
-- Civil Procedure Code (CPC) 1908
-- Indian Evidence Act 1872
-- Property law, sale deeds, mortgage deeds, title reports
-- Gujarat and Indian High Court judgments
-- Supreme Court of India case laws
-
-Always respond in a professional, concise manner. Cite relevant sections and case laws when applicable. Start responses with "Namaste!" only for the first message. For subsequent messages, respond directly. Keep responses focused and practical for an advocate's daily practice.`;
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: "0",
@@ -56,6 +36,8 @@ export default function AIAssistantScreen() {
   const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
+  const chatMutation = trpc.ai.chat.useMutation();
+
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
@@ -74,55 +56,23 @@ export default function AIAssistantScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
     try {
-      const apiKey = GEMINI_API_KEY;
-      if (!apiKey) {
-        throw new Error("Gemini API key not configured.");
-      }
-
-      // Build conversation history for Gemini
+      // Build conversation history (exclude the initial greeting)
       const history = messages
         .filter((m) => m.id !== "0")
         .map((m) => ({
-          role: m.role === "user" ? "user" : "model",
+          role: m.role === "user" ? ("user" as const) : ("model" as const),
           parts: [{ text: m.content }],
         }));
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [
-              ...history,
-              { role: "user", parts: [{ text: trimmed }] },
-            ],
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 1024,
-            },
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Rate limit reached. Please wait a moment and try again.");
-        }
-        throw new Error(data.error?.message || "API error occurred.");
-      }
-
-      const assistantText =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "I apologize, I could not generate a response. Please try again.";
+      const result = await chatMutation.mutateAsync({
+        message: trimmed,
+        history,
+      });
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: assistantText,
+        content: result.text,
         timestamp: Date.now(),
       };
 
@@ -139,7 +89,7 @@ export default function AIAssistantScreen() {
     } finally {
       setLoading(false);
     }
-  }, [messages, loading]);
+  }, [messages, loading, chatMutation]);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === "user";
@@ -202,7 +152,7 @@ export default function AIAssistantScreen() {
 
         {/* Loading indicator */}
         {loading && (
-          <View style={[styles.loadingRow]}>
+          <View style={styles.loadingRow}>
             <View style={[styles.avatarSmall, { backgroundColor: colors.primary }]}>
               <IconSymbol name="sparkles" size={14} color="#F5A623" />
             </View>

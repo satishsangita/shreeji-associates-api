@@ -17,3 +17,11 @@
 - [x] Create interactive showcase webpage
 - [x] Fix Android APK build error: react-native-gesture-handler Gradle dependency resolution failure
 - [x] Fix Android APK C++ build error: react-native-gesture-handler C++ compilation failure with RN 0.81 new arch
+- [x] Redesign Title Report as data entry + records list (sr no, bank, party, loan no, property)
+- [x] Redesign Mortgage Deed as data entry + records list (party, bank, loan, mobile, property, payment, appt date, deed no, SRO, screenshot, reference)
+- [x] Redesign Sale Deed as data entry + records list (seller, purchaser, property, SRO, deed no, payment, reference)
+- [x] Save all records to Supabase database
+- [x] Add Excel export for Title Report records
+- [x] Add Excel export for Mortgage Deed records
+- [x] Add Excel export for Sale Deed records
+- [x] Fix AI Assistant (Gemini API not working - now routes through backend server)
