@@ -9,21 +9,52 @@ type IconMapping = Record<SymbolViewProps["name"], ComponentProps<typeof Materia
 type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * Add your SF Symbols to Material Icons mappings here.
- * - see Material Icons in the [Icons Directory](https://icons.expo.fyi).
- * - see SF Symbols in the [SF Symbols](https://developer.apple.com/sf-symbols/) app.
+ * SF Symbols to Material Icons mappings for Shreeji Associates
  */
 const MAPPING = {
+  // Navigation
   "house.fill": "home",
+  "doc.text.fill": "description",
+  "building.columns.fill": "account-balance",
+  "doc.badge.plus": "post-add",
+  "sparkles": "auto-awesome",
+  // General
   "paperplane.fill": "send",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
+  "chevron.left": "chevron-left",
+  "plus": "add",
+  "xmark": "close",
+  "checkmark": "check",
+  "trash": "delete",
+  "pencil": "edit",
+  "magnifyingglass": "search",
+  "bell.fill": "notifications",
+  "person.fill": "person",
+  "person.2.fill": "group",
+  "briefcase.fill": "work",
+  "calendar": "calendar-today",
+  "clock.fill": "schedule",
+  "dollarsign.circle.fill": "attach-money",
+  "doc.fill": "insert-drive-file",
+  "folder.fill": "folder",
+  "arrow.up.doc.fill": "upload-file",
+  "arrow.down.doc.fill": "download",
+  "info.circle.fill": "info",
+  "exclamationmark.triangle.fill": "warning",
+  "checkmark.circle.fill": "check-circle",
+  "xmark.circle.fill": "cancel",
+  "ellipsis": "more-horiz",
+  "gearshape.fill": "settings",
+  "arrow.clockwise": "refresh",
+  "square.and.arrow.up": "share",
+  "printer.fill": "print",
+  "mic.fill": "mic",
+  "stop.fill": "stop",
 } as IconMapping;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.
- * This ensures a consistent look across platforms, and optimal resource usage.
- * Icon `name`s are based on SF Symbols and require manual mapping to Material Icons.
  */
 export function IconSymbol({
   name,

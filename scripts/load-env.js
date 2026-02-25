@@ -40,6 +40,7 @@ const mappings = {
   OAUTH_SERVER_URL: "EXPO_PUBLIC_OAUTH_SERVER_URL",
   OWNER_OPEN_ID: "EXPO_PUBLIC_OWNER_OPEN_ID",
   OWNER_NAME: "EXPO_PUBLIC_OWNER_NAME",
+  GEMINI_API_KEY: "EXPO_PUBLIC_GEMINI_API_KEY",
 };
 
 for (const [systemVar, expoVar] of Object.entries(mappings)) {
