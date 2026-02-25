@@ -86,6 +86,13 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     [
+      "expo-image-picker",
+      {
+        "photosPermission": "Allow Shreeji Associates to access your photos for payment screenshots.",
+        "cameraPermission": "Allow Shreeji Associates to take photos of payment receipts."
+      }
+    ],
+    [
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",

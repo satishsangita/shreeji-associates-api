@@ -70,6 +70,7 @@ export const saleDeeds = mysqlTable("sale_deeds", {
   saleDeedNumber: varchar("saleDeedNumber", { length: 100 }),
   saleDeedPayment: varchar("saleDeedPayment", { length: 100 }),
   saleDeedPaymentReference: varchar("saleDeedPaymentReference", { length: 255 }),
+  saleDeedPaymentScreenshot: text("saleDeedPaymentScreenshot"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

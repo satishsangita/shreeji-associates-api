@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, Modal, ScrollView, Alert, ActivityIndicator,
+  StyleSheet, Modal, ScrollView, Alert, ActivityIndicator, Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -23,6 +24,22 @@ interface FormState {
   mortgageReference: string;
 }
 
+type MortgageRecord = {
+  id: number;
+  partyName: string;
+  bankName: string;
+  loanAmount: string;
+  partyMobile: string;
+  propertyDetails: string;
+  paymentDetails?: string | null;
+  appointmentDate?: string | null;
+  mortgageDeedNumber?: string | null;
+  subRegistrarOffice?: string | null;
+  mortgagePaymentScreenshot?: string | null;
+  mortgageReference?: string | null;
+  createdAt: Date;
+};
+
 const EMPTY_FORM: FormState = {
   partyName: "", bankName: "", loanAmount: "", partyMobile: "",
   propertyDetails: "", paymentDetails: "", appointmentDate: "",
@@ -33,16 +50,64 @@ const EMPTY_FORM: FormState = {
 export default function MortgageDeedScreen() {
   const colors = useColors();
   const [modalVisible, setModalVisible] = useState(false);
+  const [editRecord, setEditRecord] = useState<MortgageRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { data: records = [], isLoading, refetch } = trpc.mortgageDeeds.list.useQuery();
   const createMutation = trpc.mortgageDeeds.create.useMutation({
-    onSuccess: () => { refetch(); setModalVisible(false); setForm(EMPTY_FORM); },
+    onSuccess: () => { refetch(); closeModal(); },
+  });
+  const updateMutation = trpc.mortgageDeeds.update.useMutation({
+    onSuccess: () => { refetch(); closeModal(); },
   });
   const deleteMutation = trpc.mortgageDeeds.delete.useMutation({ onSuccess: () => refetch() });
+  const uploadMutation = trpc.upload.image.useMutation();
+
+  const openAdd = () => { setForm(EMPTY_FORM); setEditRecord(null); setModalVisible(true); };
+  const openEdit = (r: MortgageRecord) => {
+    setForm({
+      partyName: r.partyName, bankName: r.bankName, loanAmount: r.loanAmount,
+      partyMobile: r.partyMobile, propertyDetails: r.propertyDetails,
+      paymentDetails: r.paymentDetails ?? "", appointmentDate: r.appointmentDate ?? "",
+      mortgageDeedNumber: r.mortgageDeedNumber ?? "", subRegistrarOffice: r.subRegistrarOffice ?? "",
+      mortgagePaymentScreenshot: r.mortgagePaymentScreenshot ?? "", mortgageReference: r.mortgageReference ?? "",
+    });
+    setEditRecord(r);
+    setModalVisible(true);
+  };
+  const closeModal = () => { setModalVisible(false); setEditRecord(null); setForm(EMPTY_FORM); };
+
+  const pickImage = async (source: "gallery" | "camera") => {
+    let result;
+    if (source === "camera") {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission Required", "Please allow camera access."); return; }
+      result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission Required", "Please allow photo library access."); return; }
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, base64: true });
+    }
+    if (!result.canceled && result.assets[0]?.base64) {
+      setUploadingImage(true);
+      try {
+        const { url } = await uploadMutation.mutateAsync({
+          base64: result.assets[0].base64,
+          mimeType: result.assets[0].mimeType ?? "image/jpeg",
+          folder: "mortgage-screenshots",
+        });
+        setForm((f) => ({ ...f, mortgagePaymentScreenshot: url }));
+      } catch (e: any) {
+        Alert.alert("Upload Failed", e.message ?? "Could not upload image.");
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+  };
 
   const filtered = records.filter((r) =>
     r.partyName.toLowerCase().includes(search.toLowerCase()) ||
@@ -57,10 +122,20 @@ export default function MortgageDeedScreen() {
       Alert.alert("Required", "Please fill Party Name, Bank Name, Loan Amount, Mobile, and Property Details."); return;
     }
     setSaving(true);
-    try { await createMutation.mutateAsync(form); }
+    try {
+      const payload = {
+        partyName: form.partyName, bankName: form.bankName, loanAmount: form.loanAmount,
+        partyMobile: form.partyMobile, propertyDetails: form.propertyDetails,
+        paymentDetails: form.paymentDetails || undefined, appointmentDate: form.appointmentDate || undefined,
+        mortgageDeedNumber: form.mortgageDeedNumber || undefined, subRegistrarOffice: form.subRegistrarOffice || undefined,
+        mortgagePaymentScreenshot: form.mortgagePaymentScreenshot || undefined, mortgageReference: form.mortgageReference || undefined,
+      };
+      if (editRecord) { await updateMutation.mutateAsync({ id: editRecord.id, ...payload }); }
+      else { await createMutation.mutateAsync(payload); }
+    }
     catch (e: any) { Alert.alert("Error", e.message || "Failed to save."); }
     finally { setSaving(false); }
-  }, [form]);
+  }, [form, editRecord]);
 
   const handleDelete = (id: number) => {
     Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
@@ -103,7 +178,7 @@ export default function MortgageDeedScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.accent }]}
-            onPress={() => setModalVisible(true)} activeOpacity={0.85}
+            onPress={openAdd} activeOpacity={0.85}
           >
             <IconSymbol name="plus" size={18} color="#1A3C8F" />
             <Text style={[styles.addBtnText, { color: "#1A3C8F" }]}>Add</Text>
@@ -173,7 +248,17 @@ export default function MortgageDeedScreen() {
                     {item.mortgageDeedNumber ? <DetailRow label="Deed Number" value={item.mortgageDeedNumber} colors={colors} /> : null}
                     {item.subRegistrarOffice ? <DetailRow label="Sub Registrar Office" value={item.subRegistrarOffice} colors={colors} /> : null}
                     {item.mortgageReference ? <DetailRow label="Mortgage Reference" value={item.mortgageReference} colors={colors} /> : null}
-                    {item.mortgagePaymentScreenshot ? <DetailRow label="Payment Screenshot" value={item.mortgagePaymentScreenshot} colors={colors} /> : null}
+                    {item.mortgagePaymentScreenshot ? (
+                      <View>
+                        <Text style={[styles.detailLabel, { color: colors.muted }]}>Payment Screenshot</Text>
+                        <Image source={{ uri: item.mortgagePaymentScreenshot }} style={styles.screenshotThumb} resizeMode="contain" />
+                      </View>
+                    ) : null}
+                    <View style={styles.cardActionRow}>
+                      <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.primary + "15" }]} onPress={() => openEdit(item)}>
+                        <Text style={[styles.editBtnText, { color: colors.primary }]}>✏️ Edit</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
@@ -182,13 +267,13 @@ export default function MortgageDeedScreen() {
         />
       )}
 
-      {/* Add Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      {/* Add/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Mortgage Deed</Text>
-              <TouchableOpacity onPress={() => { setModalVisible(false); setForm(EMPTY_FORM); }} activeOpacity={0.7}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editRecord ? "Edit Mortgage Deed" : "New Mortgage Deed"}</Text>
+              <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
                 <IconSymbol name="xmark.circle.fill" size={26} color={colors.muted} />
               </TouchableOpacity>
             </View>
@@ -207,14 +292,44 @@ export default function MortgageDeedScreen() {
               <FormField label="Appointment Date" value={form.appointmentDate} onChangeText={set("appointmentDate")} placeholder="DD/MM/YYYY" colors={colors} />
               <FormField label="Mortgage Deed Number" value={form.mortgageDeedNumber} onChangeText={set("mortgageDeedNumber")} placeholder="e.g. MD-2024-001" colors={colors} />
               <FormField label="Sub Registrar Office" value={form.subRegistrarOffice} onChangeText={set("subRegistrarOffice")} placeholder="e.g. SRO Ahmedabad-1" colors={colors} />
-              <FormField label="Mortgage Payment Screenshot" value={form.mortgagePaymentScreenshot} onChangeText={set("mortgagePaymentScreenshot")} placeholder="URL or reference link" colors={colors} />
               <FormField label="Mortgage Reference" value={form.mortgageReference} onChangeText={set("mortgageReference")} placeholder="Reference number or note" colors={colors} />
+
+              {/* Payment Screenshot Upload */}
+              <Text style={[styles.fieldLabel, { color: colors.foreground, marginBottom: 6 }]}>Payment Screenshot</Text>
+              {form.mortgagePaymentScreenshot ? (
+                <View style={{ marginBottom: 14 }}>
+                  <Image source={{ uri: form.mortgagePaymentScreenshot }} style={styles.previewImage} resizeMode="contain" />
+                  <TouchableOpacity
+                    style={[styles.removeBtn, { backgroundColor: colors.error + "15" }]}
+                    onPress={() => setForm((f) => ({ ...f, mortgagePaymentScreenshot: "" }))}
+                  >
+                    <Text style={[styles.removeBtnText, { color: colors.error }]}>Remove Image</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePickerRow}>
+                  <TouchableOpacity
+                    style={[styles.imagePickerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={() => pickImage("gallery")} disabled={uploadingImage}
+                  >
+                    {uploadingImage ? <ActivityIndicator size="small" color={colors.primary} /> : (
+                      <Text style={[styles.imagePickerBtnText, { color: colors.primary }]}>📁 Gallery</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.imagePickerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={() => pickImage("camera")} disabled={uploadingImage}
+                  >
+                    <Text style={[styles.imagePickerBtnText, { color: colors.primary }]}>📷 Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.primary }]}
                 onPress={handleSave} disabled={saving} activeOpacity={0.85}
               >
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Record</Text>}
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editRecord ? "Update Record" : "Save Record"}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -299,4 +414,14 @@ const styles = StyleSheet.create({
   fieldInputMulti: { height: 80, textAlignVertical: "top" },
   saveBtn: { borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 8 },
   saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  imagePickerRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  imagePickerBtn: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  imagePickerBtnText: { fontSize: 14, fontWeight: "600" },
+  previewImage: { width: "100%", height: 160, borderRadius: 10, backgroundColor: "#F3F4F6", marginBottom: 8 },
+  removeBtn: { borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 14 },
+  removeBtnText: { fontSize: 13, fontWeight: "600" },
+  screenshotThumb: { width: "100%", height: 120, borderRadius: 8, backgroundColor: "#F3F4F6", marginTop: 4 },
+  cardActionRow: { flexDirection: "row", marginTop: 10 },
+  editBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center" },
+  editBtnText: { fontSize: 13, fontWeight: "600" },
 });

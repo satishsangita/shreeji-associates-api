@@ -3,6 +3,7 @@ import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { storagePut } from "./storage";
 import * as db from "./db";
 
 export const appRouter = router({
@@ -14,6 +15,24 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+
+  // ─── Image Upload ──────────────────────────────────────────────────────────
+  upload: router({
+    image: publicProcedure
+      .input(z.object({
+        base64: z.string().min(1),
+        mimeType: z.string().default("image/jpeg"),
+        folder: z.string().default("screenshots"),
+      }))
+      .mutation(async ({ input }) => {
+        const suffix = Math.random().toString(36).slice(2, 8);
+        const ext = input.mimeType.split("/")[1] ?? "jpg";
+        const key = `${input.folder}/${Date.now()}-${suffix}.${ext}`;
+        const buffer = Buffer.from(input.base64, "base64");
+        const { url } = await storagePut(key, buffer, input.mimeType);
+        return { url };
+      }),
   }),
 
   // ─── Title Reports ─────────────────────────────────────────────────────────
@@ -29,6 +48,20 @@ export const appRouter = router({
         propertyDetails: z.string().min(1),
       }))
       .mutation(({ input }) => db.createTitleReport(input)),
+
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        srNo: z.string().min(1).optional(),
+        bankName: z.string().min(1).optional(),
+        partyName: z.string().min(1).optional(),
+        loanNumber: z.string().min(1).optional(),
+        propertyDetails: z.string().min(1).optional(),
+      }))
+      .mutation(({ input }) => {
+        const { id, ...data } = input;
+        return db.updateTitleReport(id, data);
+      }),
 
     delete: publicProcedure
       .input(z.object({ id: z.number() }))
@@ -55,6 +88,26 @@ export const appRouter = router({
       }))
       .mutation(({ input }) => db.createMortgageDeed(input)),
 
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        partyName: z.string().min(1).optional(),
+        bankName: z.string().min(1).optional(),
+        loanAmount: z.string().min(1).optional(),
+        partyMobile: z.string().min(1).optional(),
+        propertyDetails: z.string().min(1).optional(),
+        paymentDetails: z.string().optional(),
+        appointmentDate: z.string().optional(),
+        mortgageDeedNumber: z.string().optional(),
+        subRegistrarOffice: z.string().optional(),
+        mortgagePaymentScreenshot: z.string().optional(),
+        mortgageReference: z.string().optional(),
+      }))
+      .mutation(({ input }) => {
+        const { id, ...data } = input;
+        return db.updateMortgageDeed(id, data);
+      }),
+
     delete: publicProcedure
       .input(z.object({ id: z.number() }))
       .mutation(({ input }) => db.deleteMortgageDeed(input.id)),
@@ -73,8 +126,26 @@ export const appRouter = router({
         saleDeedNumber: z.string().optional(),
         saleDeedPayment: z.string().optional(),
         saleDeedPaymentReference: z.string().optional(),
+        saleDeedPaymentScreenshot: z.string().optional(),
       }))
       .mutation(({ input }) => db.createSaleDeed(input)),
+
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        sellerName: z.string().min(1).optional(),
+        purchaserName: z.string().min(1).optional(),
+        propertyDetails: z.string().min(1).optional(),
+        sroOffice: z.string().optional(),
+        saleDeedNumber: z.string().optional(),
+        saleDeedPayment: z.string().optional(),
+        saleDeedPaymentReference: z.string().optional(),
+        saleDeedPaymentScreenshot: z.string().optional(),
+      }))
+      .mutation(({ input }) => {
+        const { id, ...data } = input;
+        return db.updateSaleDeed(id, data);
+      }),
 
     delete: publicProcedure
       .input(z.object({ id: z.number() }))

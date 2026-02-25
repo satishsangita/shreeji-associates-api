@@ -1,0 +1,1 @@
+ALTER TABLE `sale_deeds` ADD `saleDeedPaymentScreenshot` text;

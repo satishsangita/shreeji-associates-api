@@ -25,3 +25,9 @@
 - [x] Add Excel export for Mortgage Deed records
 - [x] Add Excel export for Sale Deed records
 - [x] Fix AI Assistant (Gemini API not working - now routes through backend server)
+- [x] Configure real Supabase credentials (URL + anon key) for live data sync
+- [x] Add photo upload for payment screenshots in Mortgage Deed
+- [x] Add photo upload for payment screenshots in Sale Deed
+- [x] Add edit functionality to Title Report records
+- [x] Add edit functionality to Mortgage Deed records
+- [x] Add edit functionality to Sale Deed records

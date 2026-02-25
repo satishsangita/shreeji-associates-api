@@ -70,6 +70,12 @@ export async function createTitleReport(data: InsertTitleReport) {
   return result[0].insertId;
 }
 
+export async function updateTitleReport(id: number, data: Partial<InsertTitleReport>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(titleReports).set(data).where(eq(titleReports.id, id));
+}
+
 export async function deleteTitleReport(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -91,6 +97,12 @@ export async function createMortgageDeed(data: InsertMortgageDeed) {
   return result[0].insertId;
 }
 
+export async function updateMortgageDeed(id: number, data: Partial<InsertMortgageDeed>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(mortgageDeeds).set(data).where(eq(mortgageDeeds.id, id));
+}
+
 export async function deleteMortgageDeed(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -110,6 +122,12 @@ export async function createSaleDeed(data: InsertSaleDeed) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(saleDeeds).values(data);
   return result[0].insertId;
+}
+
+export async function updateSaleDeed(id: number, data: Partial<InsertSaleDeed>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(saleDeeds).set(data).where(eq(saleDeeds.id, id));
 }
 
 export async function deleteSaleDeed(id: number) {

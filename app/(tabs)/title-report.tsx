@@ -21,18 +21,40 @@ const EMPTY_FORM: FormState = {
   srNo: "", bankName: "", partyName: "", loanNumber: "", propertyDetails: "",
 };
 
+type TitleRecord = {
+  id: number;
+  srNo: string;
+  bankName: string;
+  partyName: string;
+  loanNumber: string;
+  propertyDetails: string;
+  createdAt: Date;
+};
+
 export default function TitleReportScreen() {
   const colors = useColors();
   const [modalVisible, setModalVisible] = useState(false);
+  const [editRecord, setEditRecord] = useState<TitleRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
 
   const { data: records = [], isLoading, refetch } = trpc.titleReports.list.useQuery();
   const createMutation = trpc.titleReports.create.useMutation({
-    onSuccess: () => { refetch(); setModalVisible(false); setForm(EMPTY_FORM); },
+    onSuccess: () => { refetch(); closeModal(); },
+  });
+  const updateMutation = trpc.titleReports.update.useMutation({
+    onSuccess: () => { refetch(); closeModal(); },
   });
   const deleteMutation = trpc.titleReports.delete.useMutation({ onSuccess: () => refetch() });
+
+  const openAdd = () => { setForm(EMPTY_FORM); setEditRecord(null); setModalVisible(true); };
+  const openEdit = (r: TitleRecord) => {
+    setForm({ srNo: r.srNo, bankName: r.bankName, partyName: r.partyName, loanNumber: r.loanNumber, propertyDetails: r.propertyDetails });
+    setEditRecord(r);
+    setModalVisible(true);
+  };
+  const closeModal = () => { setModalVisible(false); setEditRecord(null); setForm(EMPTY_FORM); };
 
   const filtered = records.filter((r) =>
     r.partyName.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,10 +67,13 @@ export default function TitleReportScreen() {
       Alert.alert("Required", "Please fill all fields."); return;
     }
     setSaving(true);
-    try { await createMutation.mutateAsync(form); }
+    try {
+      if (editRecord) { await updateMutation.mutateAsync({ id: editRecord.id, ...form }); }
+      else { await createMutation.mutateAsync(form); }
+    }
     catch (e: any) { Alert.alert("Error", e.message || "Failed to save."); }
     finally { setSaving(false); }
-  }, [form]);
+  }, [form, editRecord]);
 
   const handleDelete = (id: number) => {
     Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
@@ -86,7 +111,7 @@ export default function TitleReportScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.accent }]}
-            onPress={() => setModalVisible(true)} activeOpacity={0.85}
+            onPress={openAdd} activeOpacity={0.85}
           >
             <IconSymbol name="plus" size={18} color="#1A3C8F" />
             <Text style={[styles.addBtnText, { color: "#1A3C8F" }]}>Add</Text>
@@ -145,18 +170,24 @@ export default function TitleReportScreen() {
                 <Text style={[styles.propertyLabel, { color: colors.muted }]}>Property Details</Text>
                 <Text style={[styles.propertyText, { color: colors.foreground }]}>{item.propertyDetails}</Text>
               </View>
+              <TouchableOpacity
+                style={[styles.editBtn, { backgroundColor: colors.primary + "15", marginTop: 10 }]}
+                onPress={() => openEdit(item)}
+              >
+                <Text style={[styles.editBtnText, { color: colors.primary }]}>✏️ Edit</Text>
+              </TouchableOpacity>
             </View>
           )}
         />
       )}
 
-      {/* Add Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      {/* Add/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Title Report</Text>
-              <TouchableOpacity onPress={() => { setModalVisible(false); setForm(EMPTY_FORM); }} activeOpacity={0.7}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editRecord ? "Edit Title Report" : "New Title Report"}</Text>
+              <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
                 <IconSymbol name="xmark.circle.fill" size={26} color={colors.muted} />
               </TouchableOpacity>
             </View>
@@ -170,7 +201,7 @@ export default function TitleReportScreen() {
                 style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.primary }]}
                 onPress={handleSave} disabled={saving} activeOpacity={0.85}
               >
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Record</Text>}
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editRecord ? "Update Record" : "Save Record"}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -235,4 +266,6 @@ const styles = StyleSheet.create({
   fieldInputMulti: { height: 100, textAlignVertical: "top" },
   saveBtn: { borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 8 },
   saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  editBtn: { borderRadius: 8, paddingVertical: 8, alignItems: "center" as const },
+  editBtnText: { fontSize: 13, fontWeight: "600" as const },
 });

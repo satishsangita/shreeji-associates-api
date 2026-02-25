@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  StyleSheet, Modal, ScrollView, Alert, ActivityIndicator,
+  StyleSheet, Modal, ScrollView, Alert, ActivityIndicator, Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -17,27 +18,61 @@ interface FormState {
   saleDeedNumber: string;
   saleDeedPayment: string;
   saleDeedPaymentReference: string;
+  saleDeedPaymentScreenshot: string;
 }
+
+type SaleDeedRecord = {
+  id: number;
+  sellerName: string;
+  purchaserName: string;
+  propertyDetails: string;
+  sroOffice?: string | null;
+  saleDeedNumber?: string | null;
+  saleDeedPayment?: string | null;
+  saleDeedPaymentReference?: string | null;
+  saleDeedPaymentScreenshot?: string | null;
+  createdAt: Date;
+};
 
 const EMPTY_FORM: FormState = {
   sellerName: "", purchaserName: "", propertyDetails: "",
   sroOffice: "", saleDeedNumber: "", saleDeedPayment: "",
-  saleDeedPaymentReference: "",
+  saleDeedPaymentReference: "", saleDeedPaymentScreenshot: "",
 };
 
 export default function SaleDeedScreen() {
   const colors = useColors();
   const [modalVisible, setModalVisible] = useState(false);
+  const [editRecord, setEditRecord] = useState<SaleDeedRecord | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const { data: records = [], isLoading, refetch } = trpc.saleDeeds.list.useQuery();
   const createMutation = trpc.saleDeeds.create.useMutation({
-    onSuccess: () => { refetch(); setModalVisible(false); setForm(EMPTY_FORM); },
+    onSuccess: () => { refetch(); closeModal(); },
+  });
+  const updateMutation = trpc.saleDeeds.update.useMutation({
+    onSuccess: () => { refetch(); closeModal(); },
   });
   const deleteMutation = trpc.saleDeeds.delete.useMutation({ onSuccess: () => refetch() });
+  const uploadMutation = trpc.upload.image.useMutation();
+
+  const openAdd = () => { setForm(EMPTY_FORM); setEditRecord(null); setModalVisible(true); };
+  const openEdit = (r: SaleDeedRecord) => {
+    setForm({
+      sellerName: r.sellerName, purchaserName: r.purchaserName,
+      propertyDetails: r.propertyDetails, sroOffice: r.sroOffice ?? "",
+      saleDeedNumber: r.saleDeedNumber ?? "", saleDeedPayment: r.saleDeedPayment ?? "",
+      saleDeedPaymentReference: r.saleDeedPaymentReference ?? "",
+      saleDeedPaymentScreenshot: r.saleDeedPaymentScreenshot ?? "",
+    });
+    setEditRecord(r);
+    setModalVisible(true);
+  };
+  const closeModal = () => { setModalVisible(false); setEditRecord(null); setForm(EMPTY_FORM); };
 
   const filtered = records.filter((r) =>
     r.sellerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,15 +82,53 @@ export default function SaleDeedScreen() {
 
   const set = (key: keyof FormState) => (v: string) => setForm((f) => ({ ...f, [key]: v }));
 
+  const pickImage = async (source: "gallery" | "camera") => {
+    let result;
+    if (source === "camera") {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission Required", "Please allow camera access."); return; }
+      result = await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true });
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") { Alert.alert("Permission Required", "Please allow photo library access."); return; }
+      result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7, base64: true });
+    }
+    if (!result.canceled && result.assets[0]?.base64) {
+      setUploadingImage(true);
+      try {
+        const { url } = await uploadMutation.mutateAsync({
+          base64: result.assets[0].base64,
+          mimeType: result.assets[0].mimeType ?? "image/jpeg",
+          folder: "sale-deed-screenshots",
+        });
+        setForm((f) => ({ ...f, saleDeedPaymentScreenshot: url }));
+      } catch (e: any) {
+        Alert.alert("Upload Failed", e.message ?? "Could not upload image.");
+      } finally {
+        setUploadingImage(false);
+      }
+    }
+  };
+
   const handleSave = useCallback(async () => {
     if (!form.sellerName || !form.purchaserName || !form.propertyDetails) {
       Alert.alert("Required", "Please fill Seller Name, Purchaser Name, and Property Details."); return;
     }
     setSaving(true);
-    try { await createMutation.mutateAsync(form); }
+    try {
+      const payload = {
+        sellerName: form.sellerName, purchaserName: form.purchaserName,
+        propertyDetails: form.propertyDetails, sroOffice: form.sroOffice || undefined,
+        saleDeedNumber: form.saleDeedNumber || undefined, saleDeedPayment: form.saleDeedPayment || undefined,
+        saleDeedPaymentReference: form.saleDeedPaymentReference || undefined,
+        saleDeedPaymentScreenshot: form.saleDeedPaymentScreenshot || undefined,
+      };
+      if (editRecord) { await updateMutation.mutateAsync({ id: editRecord.id, ...payload }); }
+      else { await createMutation.mutateAsync(payload); }
+    }
     catch (e: any) { Alert.alert("Error", e.message || "Failed to save."); }
     finally { setSaving(false); }
-  }, [form]);
+  }, [form, editRecord]);
 
   const handleDelete = (id: number) => {
     Alert.alert("Delete Record", "Are you sure you want to delete this record?", [
@@ -95,7 +168,7 @@ export default function SaleDeedScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.accent }]}
-            onPress={() => setModalVisible(true)} activeOpacity={0.85}
+            onPress={openAdd} activeOpacity={0.85}
           >
             <IconSymbol name="plus" size={18} color="#1A3C8F" />
             <Text style={[styles.addBtnText, { color: "#1A3C8F" }]}>Add</Text>
@@ -166,6 +239,17 @@ export default function SaleDeedScreen() {
                     <DetailRow label="Property Details" value={item.propertyDetails} colors={colors} />
                     {item.saleDeedPayment ? <DetailRow label="Sale Deed Payment" value={item.saleDeedPayment} colors={colors} /> : null}
                     {item.saleDeedPaymentReference ? <DetailRow label="Payment Reference" value={item.saleDeedPaymentReference} colors={colors} /> : null}
+                    {item.saleDeedPaymentScreenshot ? (
+                      <View>
+                        <Text style={[styles.detailLabel, { color: colors.muted }]}>Payment Screenshot</Text>
+                        <Image source={{ uri: item.saleDeedPaymentScreenshot }} style={styles.screenshotThumb} resizeMode="contain" />
+                      </View>
+                    ) : null}
+                    <View style={styles.cardActionRow}>
+                      <TouchableOpacity style={[styles.editBtn, { backgroundColor: colors.primary + "15" }]} onPress={() => openEdit(item)}>
+                        <Text style={[styles.editBtnText, { color: colors.primary }]}>✏️ Edit</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
               </View>
@@ -174,13 +258,13 @@ export default function SaleDeedScreen() {
         />
       )}
 
-      {/* Add Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+      {/* Add/Edit Modal */}
+      <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={closeModal}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { backgroundColor: colors.background }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.modalTitle, { color: colors.foreground }]}>New Sale Deed</Text>
-              <TouchableOpacity onPress={() => { setModalVisible(false); setForm(EMPTY_FORM); }} activeOpacity={0.7}>
+              <Text style={[styles.modalTitle, { color: colors.foreground }]}>{editRecord ? "Edit Sale Deed" : "New Sale Deed"}</Text>
+              <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
                 <IconSymbol name="xmark.circle.fill" size={26} color={colors.muted} />
               </TouchableOpacity>
             </View>
@@ -198,11 +282,42 @@ export default function SaleDeedScreen() {
               <FormField label="Sale Deed Payment" value={form.saleDeedPayment} onChangeText={set("saleDeedPayment")} placeholder="Stamp duty, registration fee, total amount..." colors={colors} multiline />
               <FormField label="Sale Deed Payment Reference" value={form.saleDeedPaymentReference} onChangeText={set("saleDeedPaymentReference")} placeholder="Challan no, UTR, transaction ID..." colors={colors} />
 
+              {/* Payment Screenshot Upload */}
+              <Text style={[styles.fieldLabel, { color: colors.foreground, marginBottom: 6 }]}>Payment Screenshot</Text>
+              {form.saleDeedPaymentScreenshot ? (
+                <View style={{ marginBottom: 14 }}>
+                  <Image source={{ uri: form.saleDeedPaymentScreenshot }} style={styles.previewImage} resizeMode="contain" />
+                  <TouchableOpacity
+                    style={[styles.removeBtn, { backgroundColor: colors.error + "15" }]}
+                    onPress={() => setForm((f) => ({ ...f, saleDeedPaymentScreenshot: "" }))}
+                  >
+                    <Text style={[styles.removeBtnText, { color: colors.error }]}>Remove Image</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.imagePickerRow}>
+                  <TouchableOpacity
+                    style={[styles.imagePickerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={() => pickImage("gallery")} disabled={uploadingImage}
+                  >
+                    {uploadingImage ? <ActivityIndicator size="small" color={colors.primary} /> : (
+                      <Text style={[styles.imagePickerBtnText, { color: colors.primary }]}>📁 Gallery</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.imagePickerBtn, { borderColor: colors.border, backgroundColor: colors.surface }]}
+                    onPress={() => pickImage("camera")} disabled={uploadingImage}
+                  >
+                    <Text style={[styles.imagePickerBtnText, { color: colors.primary }]}>📷 Camera</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <TouchableOpacity
                 style={[styles.saveBtn, { backgroundColor: saving ? colors.border : colors.primary }]}
                 onPress={handleSave} disabled={saving} activeOpacity={0.85}
               >
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Record</Text>}
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editRecord ? "Update Record" : "Save Record"}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -287,4 +402,14 @@ const styles = StyleSheet.create({
   fieldInputMulti: { height: 80, textAlignVertical: "top" },
   saveBtn: { borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 8 },
   saveBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  imagePickerRow: { flexDirection: "row", gap: 10, marginBottom: 14 },
+  imagePickerBtn: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 12, alignItems: "center" },
+  imagePickerBtnText: { fontSize: 14, fontWeight: "600" },
+  previewImage: { width: "100%", height: 160, borderRadius: 10, backgroundColor: "#F3F4F6", marginBottom: 8 },
+  removeBtn: { borderRadius: 8, paddingVertical: 8, alignItems: "center", marginBottom: 14 },
+  removeBtnText: { fontSize: 13, fontWeight: "600" },
+  screenshotThumb: { width: "100%", height: 120, borderRadius: 8, backgroundColor: "#F3F4F6", marginTop: 4 },
+  cardActionRow: { flexDirection: "row", marginTop: 10 },
+  editBtn: { flex: 1, paddingVertical: 8, borderRadius: 8, alignItems: "center" },
+  editBtnText: { fontSize: 13, fontWeight: "600" },
 });
