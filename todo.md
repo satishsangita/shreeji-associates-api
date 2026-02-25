@@ -16,3 +16,4 @@
 - [x] Polish UI: typography, spacing, shadows
 - [x] Create interactive showcase webpage
 - [x] Fix Android APK build error: react-native-gesture-handler Gradle dependency resolution failure
+- [x] Fix Android APK C++ build error: react-native-gesture-handler C++ compilation failure with RN 0.81 new arch
