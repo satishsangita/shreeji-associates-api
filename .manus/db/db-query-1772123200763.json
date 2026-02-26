@@ -1,0 +1,17 @@
+{
+  "query": "UPDATE app_users SET name = 'Satish Patel' WHERE email = 'patel8388@gmail.com';\nSELECT id, name, email, role, status FROM app_users WHERE email = 'patel8388@gmail.com';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1j7ZhzGuhaFGuS6.root --database BkuyPoD4AgGm8RhSHRpVMT --execute UPDATE app_users SET name = 'Satish Patel' WHERE email = 'patel8388@gmail.com';\nSELECT id, name, email, role, status FROM app_users WHERE email = 'patel8388@gmail.com';",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Satish Patel",
+      "email": "patel8388@gmail.com",
+      "role": "admin",
+      "status": "approved"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\tstatus\n1\tSatish Patel\tpatel8388@gmail.com\tadmin\tapproved\n",
+  "stderr": "",
+  "execution_time_ms": 1874
+}

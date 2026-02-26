@@ -128,6 +128,21 @@ export const appRouter = router({
         return { success: true };
       }),
 
+    // User updates their own name
+    updateName: publicProcedure
+      .input(z.object({
+        token: z.string(),
+        name: z.string().min(2).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const user = await db.getAppUserById(parsed.userId);
+        if (!user) throw new Error("User not found.");
+        await db.updateAppUser(user.id, { name: input.name.trim() });
+        return { success: true, name: input.name.trim() };
+      }),
+
     // User changes their own password
     changePassword: publicProcedure
       .input(z.object({

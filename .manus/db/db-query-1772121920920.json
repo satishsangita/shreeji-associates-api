@@ -1,0 +1,50 @@
+{
+  "query": "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'app_users';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1j7ZhzGuhaFGuS6.root --database BkuyPoD4AgGm8RhSHRpVMT --execute SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'app_users';",
+  "rows": [
+    {
+      "COLUMN_NAME": "id",
+      "DATA_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "name",
+      "DATA_TYPE": "varchar"
+    },
+    {
+      "COLUMN_NAME": "email",
+      "DATA_TYPE": "varchar"
+    },
+    {
+      "COLUMN_NAME": "passwordHash",
+      "DATA_TYPE": "varchar"
+    },
+    {
+      "COLUMN_NAME": "role",
+      "DATA_TYPE": "enum"
+    },
+    {
+      "COLUMN_NAME": "status",
+      "DATA_TYPE": "enum"
+    },
+    {
+      "COLUMN_NAME": "approvedBy",
+      "DATA_TYPE": "int"
+    },
+    {
+      "COLUMN_NAME": "approvedAt",
+      "DATA_TYPE": "timestamp"
+    },
+    {
+      "COLUMN_NAME": "createdAt",
+      "DATA_TYPE": "timestamp"
+    },
+    {
+      "COLUMN_NAME": "updatedAt",
+      "DATA_TYPE": "timestamp"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\tDATA_TYPE\nid\tint\nname\tvarchar\nemail\tvarchar\npasswordHash\tvarchar\nrole\tenum\nstatus\tenum\napprovedBy\tint\napprovedAt\ttimestamp\ncreatedAt\ttimestamp\nupdatedAt\ttimestamp\n",
+  "stderr": "",
+  "execution_time_ms": 1724
+}

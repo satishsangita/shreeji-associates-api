@@ -1,0 +1,17 @@
+{
+  "query": "UPDATE app_users \nSET passwordHash = '$2b$10$0dc0tNV2i/j3pJfXvKxXvepTG.voKcChVHgNZLgLwr8Q3JCJIPLRK',\n    role = 'admin',\n    status = 'approved'\nWHERE email = 'patel8388@gmail.com';\n\nSELECT id, name, email, role, status FROM app_users WHERE email = 'patel8388@gmail.com';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1j7ZhzGuhaFGuS6.root --database BkuyPoD4AgGm8RhSHRpVMT --execute UPDATE app_users \nSET passwordHash = '$2b$10$0dc0tNV2i/j3pJfXvKxXvepTG.voKcChVHgNZLgLwr8Q3JCJIPLRK',\n    role = 'admin',\n    status = 'approved'\nWHERE email = 'patel8388@gmail.com';\n\nSELECT id, name, email, role, status FROM app_users WHERE email = 'patel8388@gmail.com';",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Admin Patel",
+      "email": "patel8388@gmail.com",
+      "role": "admin",
+      "status": "approved"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\tstatus\n1\tAdmin Patel\tpatel8388@gmail.com\tadmin\tapproved\n",
+  "stderr": "",
+  "execution_time_ms": 1846
+}

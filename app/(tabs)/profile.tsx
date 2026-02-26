@@ -30,9 +30,15 @@ export default function ProfileScreen() {
   const [newPw, setNewPw] = useState("");
   const [changingPw, setChangingPw] = useState(false);
 
+  // Update name state
+  const [showUpdateName, setShowUpdateName] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [updatingName, setUpdatingName] = useState(false);
+
   const loginMutation = trpc.appAuth.login.useMutation();
   const registerMutation = trpc.appAuth.register.useMutation();
   const changePasswordMutation = trpc.appAuth.changePassword.useMutation();
+  const updateNameMutation = trpc.appAuth.updateName.useMutation();
 
   const handleSubmit = async () => {
     const emailTrimmed = email.trim().toLowerCase();
@@ -95,6 +101,28 @@ export default function ProfileScreen() {
       Alert.alert("Error", err.message || "Could not change password.");
     } finally {
       setChangingPw(false);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!newName.trim() || newName.trim().length < 2) {
+      Alert.alert("Invalid Name", "Name must be at least 2 characters.");
+      return;
+    }
+    setUpdatingName(true);
+    try {
+      await updateNameMutation.mutateAsync({ token: token!, name: newName.trim() });
+      // Update local auth context with new name
+      if (user) {
+        await login(token!, { ...user, name: newName.trim() });
+      }
+      Alert.alert("Success", "Your name has been updated.");
+      setNewName("");
+      setShowUpdateName(false);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not update name.");
+    } finally {
+      setUpdatingName(false);
     }
   };
 
@@ -215,6 +243,44 @@ export default function ProfileScreen() {
               <Text style={styles.actionBtnText}>Daily MIS Work Report</Text>
               <IconSymbol name="chevron.right" size={16} color="#FFFFFF" />
             </TouchableOpacity>
+          )}
+
+          {/* Update Name */}
+          {user.status === "approved" && (
+            <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.changePwHeader}
+                onPress={() => { setShowUpdateName(!showUpdateName); setNewName(user.name); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.infoCardTitle, { color: colors.muted }]}>UPDATE NAME</Text>
+                <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+              </TouchableOpacity>
+              {showUpdateName && (
+                <View style={{ marginTop: 12 }}>
+                  <TextInput
+                    value={newName}
+                    onChangeText={setNewName}
+                    placeholder="Enter new name"
+                    placeholderTextColor={colors.muted + "80"}
+                    autoCapitalize="words"
+                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, marginBottom: 12 }]}
+                    returnKeyType="done"
+                    onSubmitEditing={handleUpdateName}
+                  />
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: updatingName ? colors.muted : colors.primary }]}
+                    onPress={handleUpdateName}
+                    disabled={updatingName}
+                    activeOpacity={0.85}
+                  >
+                    {updatingName
+                      ? <ActivityIndicator size="small" color="#FFF" />
+                      : <Text style={styles.actionBtnText}>Save Name</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
 
           {/* Change Password */}
