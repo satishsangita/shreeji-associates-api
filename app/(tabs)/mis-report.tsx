@@ -45,6 +45,32 @@ export default function MisReportScreen() {
 
   const submitMutation = trpc.mis.submit.useMutation();
 
+  const handleExportMyReports = async () => {
+    const reports = myReportsQuery.data ?? [];
+    if (reports.length === 0) {
+      Alert.alert("No Data", "You have no reports to export.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const rows = reports.map((r) => ({
+        "Date": r.reportDate,
+        "Hours Worked": r.hoursWorked,
+        "Tasks Completed": r.tasksCompleted,
+        "Title Reports": r.titleReportsDone ?? 0,
+        "Mortgage Deeds": r.mortgageDeedsDone ?? 0,
+        "Sale Deeds": r.saleDeedsDone ?? 0,
+        "Court Visits": r.courtVisits ?? 0,
+        "Client Meetings": r.clientMeetings ?? 0,
+        "Notes": r.notes ?? "",
+      }));
+      const today = new Date().toISOString().slice(0, 10);
+      await exportToExcel(rows, "My MIS Reports", `My_MIS_Report_${today}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleExportAllTeam = async () => {
     const reports = allReportsQuery.data ?? [];
     if (reports.length === 0) {
@@ -347,12 +373,35 @@ export default function MisReportScreen() {
               <Text style={[styles.emptyText, { color: colors.muted }]}>Submit your first daily MIS report.</Text>
             </View>
           ) : (
-            <FlatList
-              data={myReportsQuery.data}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderReportItem}
-              contentContainerStyle={styles.listContent}
-            />
+            <View style={{ flex: 1 }}>
+              {/* Export button */}
+              <View style={[styles.exportBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+                <Text style={[styles.exportCount, { color: colors.muted }]}>
+                  {myReportsQuery.data?.length ?? 0} report{(myReportsQuery.data?.length ?? 0) !== 1 ? "s" : ""}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: colors.primary }]}
+                  onPress={handleExportMyReports}
+                  disabled={exporting}
+                  activeOpacity={0.85}
+                >
+                  {exporting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <IconSymbol name="arrow.down.doc.fill" size={15} color="#FFFFFF" />
+                      <Text style={styles.exportBtnText}>Export Excel</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={myReportsQuery.data}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderReportItem}
+                contentContainerStyle={styles.listContent}
+              />
+            </View>
           )
         )}
 

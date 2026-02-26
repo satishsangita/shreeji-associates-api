@@ -48,3 +48,4 @@
 - [x] Add Profile tab (6th tab) to bottom navigation
 - [x] Admin user patel8388@gmail.com auto-approved on register (role=admin, status=approved)
 - [x] Add Excel export for admin All Team MIS reports view
+- [x] Add Excel export for My Reports tab in MIS Report screen
