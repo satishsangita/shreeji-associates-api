@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { storagePut } from "./storage";
+import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 
 export const appRouter = router({
@@ -163,9 +164,6 @@ export const appRouter = router({
         })).optional().default([]),
       }))
       .mutation(async ({ input }) => {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) throw new Error("Gemini API key not configured on server.");
-
         const systemPrompt = `You are an expert AI Legal Assistant specializing in Indian Law. You are knowledgeable about:
 - Bharatiya Nyaya Sanhita (BNS) 2023, Bharatiya Nagarik Suraksha Sanhita (BNSS) 2023
 - Indian Penal Code (IPC) 1860, Code of Criminal Procedure (CrPC) 1973
@@ -176,41 +174,24 @@ export const appRouter = router({
 - Gujarat and Indian High Court judgments, Supreme Court of India case laws
 Always respond professionally. Cite relevant sections and case laws when applicable. Keep responses focused and practical for an advocate's daily practice.`;
 
-        // Try models in order: newest first, fallback to older on rate limit
-        const MODELS = [
-          "gemini-2.0-flash-lite",
-          "gemini-1.5-flash",
-          "gemini-1.5-flash-8b",
-          "gemini-1.0-pro",
-        ];
+        // Convert Gemini-format history to OpenAI-format messages
+        const historyMessages = input.history.map((h) => ({
+          role: h.role === "model" ? ("assistant" as const) : ("user" as const),
+          content: h.parts.map((p) => p.text).join(""),
+        }));
 
-        const requestBody = JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [
-            ...input.history,
-            { role: "user", parts: [{ text: input.message }] },
+        const result = await invokeLLM({
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...historyMessages,
+            { role: "user", content: input.message },
           ],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+          maxTokens: 1024,
         });
 
-        let lastError = "";
-        for (const model of MODELS) {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-            { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody }
-          );
-          const data = await response.json() as any;
-          if (response.ok) {
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (text) return { text, model };
-          }
-          if (response.status === 429 || response.status === 503) {
-            lastError = `Model ${model} rate limited, trying next...`;
-            continue; // try next model
-          }
-          throw new Error(data.error?.message || `Gemini API error (${model}).`);
-        }
-        throw new Error("All AI models are currently rate limited. Please wait 1 minute and try again.");
+        const text = result.choices[0]?.message?.content;
+        if (!text || typeof text !== "string") throw new Error("No response from AI. Please try again.");
+        return { text, model: result.model };
       }),
   }),
 });

@@ -38,3 +38,4 @@
 - [x] Add navigation links from Dashboard Quick Action buttons to Title Report, Mortgage Deed, Sale Deed, AI Assistant screens
 - [x] Make Dashboard stats cards clickable (navigate to respective screens)
 - [x] Make Dashboard All Sections cards clickable (navigate to respective screens)
+- [x] Fix AI Assistant: switched from Gemini API (quota exhausted) to built-in invokeLLM (always works, no quota issues)
