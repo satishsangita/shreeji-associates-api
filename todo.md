@@ -35,3 +35,6 @@
 - [x] Rewrite Mortgage Deed: exact 11 fields (party name, bank name, loan amount, mobile, property, payment, appt date, deed no, SRO, screenshot, reference) + Supabase + Excel
 - [x] Rewrite Sale Deed: exact 7 fields (seller, purchaser, property, SRO, deed no, payment, reference) + Supabase + Excel
 - [x] Fix AI Assistant: added model fallback chain (gemini-2.0-flash-lite → gemini-1.5-flash → gemini-1.5-flash-8b → gemini-1.0-pro)
+- [x] Add navigation links from Dashboard Quick Action buttons to Title Report, Mortgage Deed, Sale Deed, AI Assistant screens
+- [x] Make Dashboard stats cards clickable (navigate to respective screens)
+- [x] Make Dashboard All Sections cards clickable (navigate to respective screens)
