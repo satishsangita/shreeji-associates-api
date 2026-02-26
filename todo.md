@@ -31,3 +31,7 @@
 - [x] Add edit functionality to Title Report records
 - [x] Add edit functionality to Mortgage Deed records
 - [x] Add edit functionality to Sale Deed records
+- [x] Rewrite Title Report: exact fields (sr no, bank name, party name, loan number, property details) + Supabase + Excel
+- [x] Rewrite Mortgage Deed: exact 11 fields (party name, bank name, loan amount, mobile, property, payment, appt date, deed no, SRO, screenshot, reference) + Supabase + Excel
+- [x] Rewrite Sale Deed: exact 7 fields (seller, purchaser, property, SRO, deed no, payment, reference) + Supabase + Excel
+- [x] Fix AI Assistant: added model fallback chain (gemini-2.0-flash-lite → gemini-1.5-flash → gemini-1.5-flash-8b → gemini-1.0-pro)

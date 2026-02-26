@@ -176,32 +176,41 @@ export const appRouter = router({
 - Gujarat and Indian High Court judgments, Supreme Court of India case laws
 Always respond professionally. Cite relevant sections and case laws when applicable. Keep responses focused and practical for an advocate's daily practice.`;
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents: [
-                ...input.history,
-                { role: "user", parts: [{ text: input.message }] },
-              ],
-              generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-            }),
+        // Try models in order: newest first, fallback to older on rate limit
+        const MODELS = [
+          "gemini-2.0-flash-lite",
+          "gemini-1.5-flash",
+          "gemini-1.5-flash-8b",
+          "gemini-1.0-pro",
+        ];
+
+        const requestBody = JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [
+            ...input.history,
+            { role: "user", parts: [{ text: input.message }] },
+          ],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        });
+
+        let lastError = "";
+        for (const model of MODELS) {
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: requestBody }
+          );
+          const data = await response.json() as any;
+          if (response.ok) {
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (text) return { text, model };
           }
-        );
-
-        const data = await response.json() as any;
-
-        if (!response.ok) {
-          if (response.status === 429) throw new Error("Rate limit reached. Please wait a moment and try again.");
-          throw new Error(data.error?.message || "Gemini API error.");
+          if (response.status === 429 || response.status === 503) {
+            lastError = `Model ${model} rate limited, trying next...`;
+            continue; // try next model
+          }
+          throw new Error(data.error?.message || `Gemini API error (${model}).`);
         }
-
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!text) throw new Error("No response from AI. Please try again.");
-        return { text };
+        throw new Error("All AI models are currently rate limited. Please wait 1 minute and try again.");
       }),
   }),
 });
