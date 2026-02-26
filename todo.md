@@ -54,3 +54,6 @@
 - [x] Lock all screens until user is logged in and approved
 - [x] Pending approval screen for registered-but-not-approved users
 - [x] Admin auto-approved on register (patel8388@gmail.com)
+- [x] Forgot Password / password reset: Change Password in Profile (user), Reset Member Password in Admin Panel (admin)
+- [x] Push notification to admin (notifyOwner) when new team member registers
+- [x] Show logged-in user name on Dashboard header (Welcome, [Name]) with initials avatar

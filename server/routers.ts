@@ -6,6 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
+import { notifyOwner } from "./_core/notification";
 import * as db from "./db";
 
 const ADMIN_EMAIL = "patel8388@gmail.com";
@@ -65,6 +66,14 @@ export const appRouter = router({
         const user = await db.getAppUserById(id as number);
         if (!user) throw new Error("Failed to create account.");
 
+        // Notify admin when a new member registers (non-admin only)
+        if (!isAdmin) {
+          notifyOwner({
+            title: "New Team Member Registration",
+            content: `${input.name.trim()} (${email}) has registered and is waiting for your approval in the Shreeji Associates app. Open the Admin Panel to approve or reject their request.`,
+          }).catch(() => {}); // fire-and-forget, don't block registration
+        }
+
         const token = createAppToken(user.id, user.email);
         return {
           token,
@@ -100,6 +109,42 @@ export const appRouter = router({
         const user = await db.getAppUserById(parsed.userId);
         if (!user) throw new Error("User not found.");
         return { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status };
+      }),
+
+    // Admin resets a member's password
+    resetMemberPassword: publicProcedure
+      .input(z.object({
+        token: z.string(),
+        userId: z.number(),
+        newPassword: z.string().min(6).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const admin = await db.getAppUserById(parsed.userId);
+        if (!admin || admin.role !== "admin") throw new Error("Admin access required.");
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await db.updateAppUser(input.userId, { passwordHash });
+        return { success: true };
+      }),
+
+    // User changes their own password
+    changePassword: publicProcedure
+      .input(z.object({
+        token: z.string(),
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(6).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const user = await db.getAppUserById(parsed.userId);
+        if (!user) throw new Error("User not found.");
+        const valid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+        if (!valid) throw new Error("Current password is incorrect.");
+        const passwordHash = await bcrypt.hash(input.newPassword, 10);
+        await db.updateAppUser(user.id, { passwordHash });
+        return { success: true };
       }),
   }),
 

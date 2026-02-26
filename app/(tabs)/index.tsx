@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { useAppAuth } from "@/lib/app-auth-context";
 
 interface Hearing {
   id: string;
@@ -19,6 +20,7 @@ const HEARINGS: Hearing[] = [
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { user } = useAppAuth();
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
     year: "numeric",
@@ -26,18 +28,30 @@ export default function DashboardScreen() {
     day: "numeric",
   });
 
+  const displayName = user?.name ?? "Welcome";
+  const initials = displayName
+    .split(" ")
+    .map((w: string) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
     <ScreenContainer containerClassName="bg-primary">
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <View style={styles.headerLeft}>
           <Text style={styles.welcomeText}>Welcome back,</Text>
-          <Text style={styles.nameText}>Advocate Satish</Text>
+          <Text style={styles.nameText}>{displayName}</Text>
           <Text style={styles.dateText}>{today}</Text>
         </View>
-        <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-          <Text style={styles.avatarText}>SP</Text>
-        </View>
+        <TouchableOpacity
+          style={[styles.avatar, { backgroundColor: "rgba(255,255,255,0.25)" }]}
+          onPress={() => router.push("/(tabs)/profile")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.avatarText}>{initials}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView

@@ -24,8 +24,15 @@ export default function ProfileScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Change password state
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw, setNewPw] = useState("");
+  const [changingPw, setChangingPw] = useState(false);
+
   const loginMutation = trpc.appAuth.login.useMutation();
   const registerMutation = trpc.appAuth.register.useMutation();
+  const changePasswordMutation = trpc.appAuth.changePassword.useMutation();
 
   const handleSubmit = async () => {
     const emailTrimmed = email.trim().toLowerCase();
@@ -61,6 +68,33 @@ export default function ProfileScreen() {
       Alert.alert("Error", err.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPw || !newPw) {
+      Alert.alert("Required", "Please fill in both fields.");
+      return;
+    }
+    if (newPw.length < 6) {
+      Alert.alert("Weak Password", "New password must be at least 6 characters.");
+      return;
+    }
+    setChangingPw(true);
+    try {
+      await changePasswordMutation.mutateAsync({
+        token: token!,
+        currentPassword: currentPw,
+        newPassword: newPw,
+      });
+      Alert.alert("Success", "Password changed successfully.");
+      setCurrentPw("");
+      setNewPw("");
+      setShowChangePw(false);
+    } catch (err: any) {
+      Alert.alert("Error", err.message || "Could not change password.");
+    } finally {
+      setChangingPw(false);
     }
   };
 
@@ -181,6 +215,52 @@ export default function ProfileScreen() {
               <Text style={styles.actionBtnText}>Daily MIS Work Report</Text>
               <IconSymbol name="chevron.right" size={16} color="#FFFFFF" />
             </TouchableOpacity>
+          )}
+
+          {/* Change Password */}
+          {user.status === "approved" && (
+            <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={styles.changePwHeader}
+                onPress={() => setShowChangePw(!showChangePw)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.infoCardTitle, { color: colors.muted }]}>CHANGE PASSWORD</Text>
+                <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+              </TouchableOpacity>
+              {showChangePw && (
+                <View style={{ marginTop: 12 }}>
+                  <TextInput
+                    value={currentPw}
+                    onChangeText={setCurrentPw}
+                    placeholder="Current password"
+                    placeholderTextColor={colors.muted + "80"}
+                    secureTextEntry
+                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, marginBottom: 10 }]}
+                  />
+                  <TextInput
+                    value={newPw}
+                    onChangeText={setNewPw}
+                    placeholder="New password (min 6 chars)"
+                    placeholderTextColor={colors.muted + "80"}
+                    secureTextEntry
+                    style={[styles.input, { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.background, marginBottom: 12 }]}
+                    returnKeyType="done"
+                    onSubmitEditing={handleChangePassword}
+                  />
+                  <TouchableOpacity
+                    style={[styles.actionBtn, { backgroundColor: changingPw ? colors.muted : colors.primary }]}
+                    onPress={handleChangePassword}
+                    disabled={changingPw}
+                    activeOpacity={0.85}
+                  >
+                    {changingPw
+                      ? <ActivityIndicator size="small" color="#FFF" />
+                      : <Text style={styles.actionBtnText}>Update Password</Text>}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           )}
 
           {/* Logout */}
@@ -332,6 +412,7 @@ const styles = StyleSheet.create({
   noticeTitle: { fontSize: 13, fontWeight: "700", marginBottom: 4 },
   noticeText: { fontSize: 12, lineHeight: 18 },
   infoCard: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 16 },
+  changePwHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   infoCardTitle: { fontSize: 11, fontWeight: "700", letterSpacing: 0.5, marginBottom: 12 },
   infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 6 },
   infoLabel: { fontSize: 14 },
