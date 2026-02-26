@@ -50,3 +50,7 @@
 - [x] Add Excel export for admin All Team MIS reports view
 - [x] Add Excel export for My Reports tab in MIS Report screen
 - [x] Fix APK build error: minSdkVersion confirmed as 24, fresh checkpoint created to force Expo cloud rebuild
+- [x] Show mandatory login screen on app open (auth gate)
+- [x] Lock all screens until user is logged in and approved
+- [x] Pending approval screen for registered-but-not-approved users
+- [x] Admin auto-approved on register (patel8388@gmail.com)
