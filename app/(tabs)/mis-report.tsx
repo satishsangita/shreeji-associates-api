@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useAppAuth } from "@/lib/app-auth-context";
 import { useRouter } from "expo-router";
+import { exportToExcel } from "@/lib/excel-export";
 
 type TabType = "submit" | "history" | "all";
 
@@ -40,8 +41,37 @@ export default function MisReportScreen() {
   const [clientMeetings, setClientMeetings] = useState("0");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const submitMutation = trpc.mis.submit.useMutation();
+
+  const handleExportAllTeam = async () => {
+    const reports = allReportsQuery.data ?? [];
+    if (reports.length === 0) {
+      Alert.alert("No Data", "There are no team reports to export.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const rows = reports.map((r) => ({
+        "Date": r.reportDate,
+        "Team Member": r.userName ?? "Unknown",
+        "Email": r.userEmail ?? "",
+        "Hours Worked": r.hoursWorked,
+        "Tasks Completed": r.tasksCompleted,
+        "Title Reports": r.titleReportsDone ?? 0,
+        "Mortgage Deeds": r.mortgageDeedsDone ?? 0,
+        "Sale Deeds": r.saleDeedsDone ?? 0,
+        "Court Visits": r.courtVisits ?? 0,
+        "Client Meetings": r.clientMeetings ?? 0,
+        "Notes": r.notes ?? "",
+      }));
+      const today = new Date().toISOString().slice(0, 10);
+      await exportToExcel(rows, "MIS Reports", `Team_MIS_Report_${today}`);
+    } finally {
+      setExporting(false);
+    }
+  };
   const myReportsQuery = trpc.mis.myReports.useQuery(
     { token: token ?? "" },
     { enabled: !!token && tab === "history" },
@@ -339,12 +369,35 @@ export default function MisReportScreen() {
               <Text style={[styles.emptyText, { color: colors.muted }]}>Team members haven't submitted any reports yet.</Text>
             </View>
           ) : (
-            <FlatList
-              data={allReportsQuery.data}
-              keyExtractor={(item) => String(item.id)}
-              renderItem={renderReportItem}
-              contentContainerStyle={styles.listContent}
-            />
+            <View style={{ flex: 1 }}>
+              {/* Export button */}
+              <View style={[styles.exportBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+                <Text style={[styles.exportCount, { color: colors.muted }]}>
+                  {allReportsQuery.data?.length ?? 0} report{(allReportsQuery.data?.length ?? 0) !== 1 ? "s" : ""}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.exportBtn, { backgroundColor: colors.success }]}
+                  onPress={handleExportAllTeam}
+                  disabled={exporting}
+                  activeOpacity={0.85}
+                >
+                  {exporting ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <IconSymbol name="arrow.down.doc.fill" size={15} color="#FFFFFF" />
+                      <Text style={styles.exportBtnText}>Export Excel</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={allReportsQuery.data}
+                keyExtractor={(item) => String(item.id)}
+                renderItem={renderReportItem}
+                contentContainerStyle={styles.listContent}
+              />
+            </View>
           )
         )}
       </View>
@@ -399,4 +452,8 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, textAlign: "center", lineHeight: 20 },
   actionBtn: { marginTop: 20, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
   actionBtnText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
+  exportBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+  exportCount: { fontSize: 13 },
+  exportBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  exportBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
 });
