@@ -58,3 +58,4 @@
 - [x] Push notification to admin (notifyOwner) when new team member registers
 - [x] Show logged-in user name on Dashboard header (Welcome, [Name]) with initials avatar
 - [x] Fix splash screen blinking: replaced router.replace in useEffect with <Redirect> component in AuthGate, fixed hooks order in auth.tsx
+- [x] Fix app blank white on Android: removed AuthGate+Redirect (crash cause), replaced with AuthNavigator using useEffect+router.replace in root layout
