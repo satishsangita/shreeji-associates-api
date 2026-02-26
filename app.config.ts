@@ -126,6 +126,7 @@ const config: ExpoConfig = {
           compileSdkVersion: 35,
           targetSdkVersion: 35,
           ndkVersion: "26.1.10909125",
+          enableProguardInReleaseBuilds: false,
         },
       },
     ],
