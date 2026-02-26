@@ -1,10 +1,12 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
   titleReports, InsertTitleReport,
   mortgageDeeds, InsertMortgageDeed,
   saleDeeds, InsertSaleDeed,
+  appUsers, InsertAppUser,
+  dailyMisReports, InsertDailyMisReport,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -52,6 +54,117 @@ export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot get user: database not available"); return undefined; }
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ─── App Users (email/password auth) ─────────────────────────────────────────
+
+export async function getAppUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(appUsers).where(eq(appUsers.email, email.toLowerCase())).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getAppUserById(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.select().from(appUsers).where(eq(appUsers.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createAppUser(data: InsertAppUser) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(appUsers).values(data);
+  return result[0].insertId;
+}
+
+export async function updateAppUser(id: number, data: Partial<InsertAppUser>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(appUsers).set(data).where(eq(appUsers.id, id));
+}
+
+export async function getPendingAppUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(appUsers).where(eq(appUsers.status, "pending")).orderBy(desc(appUsers.createdAt));
+}
+
+export async function getAllAppUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: appUsers.id,
+    name: appUsers.name,
+    email: appUsers.email,
+    role: appUsers.role,
+    status: appUsers.status,
+    createdAt: appUsers.createdAt,
+  }).from(appUsers).orderBy(desc(appUsers.createdAt));
+}
+
+// ─── Daily MIS Reports ────────────────────────────────────────────────────────
+
+export async function createMisReport(data: InsertDailyMisReport) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(dailyMisReports).values(data);
+  return result[0].insertId;
+}
+
+export async function updateMisReport(id: number, data: Partial<InsertDailyMisReport>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(dailyMisReports).set(data).where(eq(dailyMisReports.id, id));
+}
+
+export async function deleteMisReport(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(dailyMisReports).where(eq(dailyMisReports.id, id));
+}
+
+export async function getMisReportsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(dailyMisReports)
+    .where(eq(dailyMisReports.userId, userId))
+    .orderBy(desc(dailyMisReports.reportDate));
+}
+
+export async function getAllMisReports() {
+  const db = await getDb();
+  if (!db) return [];
+  // Join with app_users to get user name
+  const reports = await db.select({
+    id: dailyMisReports.id,
+    userId: dailyMisReports.userId,
+    reportDate: dailyMisReports.reportDate,
+    tasksCompleted: dailyMisReports.tasksCompleted,
+    hoursWorked: dailyMisReports.hoursWorked,
+    titleReportsDone: dailyMisReports.titleReportsDone,
+    mortgageDeedsDone: dailyMisReports.mortgageDeedsDone,
+    saleDeedsDone: dailyMisReports.saleDeedsDone,
+    courtVisits: dailyMisReports.courtVisits,
+    clientMeetings: dailyMisReports.clientMeetings,
+    notes: dailyMisReports.notes,
+    createdAt: dailyMisReports.createdAt,
+    userName: appUsers.name,
+    userEmail: appUsers.email,
+  }).from(dailyMisReports)
+    .leftJoin(appUsers, eq(dailyMisReports.userId, appUsers.id))
+    .orderBy(desc(dailyMisReports.reportDate));
+  return reports;
+}
+
+export async function getMisReportByUserAndDate(userId: number, reportDate: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(dailyMisReports)
+    .where(and(eq(dailyMisReports.userId, userId), eq(dailyMisReports.reportDate, reportDate)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 

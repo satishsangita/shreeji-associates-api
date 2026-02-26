@@ -84,6 +84,18 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="person.circle.fill" color={color} />
+          ),
+        }}
+      />
+      {/* Hidden screens — navigated to programmatically */}
+      <Tabs.Screen name="admin-panel" options={{ href: null }} />
+      <Tabs.Screen name="mis-report" options={{ href: null }} />
     </Tabs>
   );
 }

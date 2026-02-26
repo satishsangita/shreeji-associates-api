@@ -1,4 +1,5 @@
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -6,6 +7,24 @@ import { publicProcedure, router } from "./_core/trpc";
 import { storagePut } from "./storage";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+
+const ADMIN_EMAIL = "patel8388@gmail.com";
+
+// Simple JWT-like token using base64 (no external dep needed)
+function createAppToken(userId: number, email: string): string {
+  const payload = JSON.stringify({ userId, email, iat: Date.now() });
+  return Buffer.from(payload).toString("base64url");
+}
+
+function parseAppToken(token: string): { userId: number; email: string } | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
+    if (!payload.userId || !payload.email) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -16,6 +35,172 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+
+  // ─── App Auth (email/password) ─────────────────────────────────────────────
+  appAuth: router({
+    register: publicProcedure
+      .input(z.object({
+        name: z.string().min(2).max(100),
+        email: z.string().email(),
+        password: z.string().min(6).max(100),
+      }))
+      .mutation(async ({ input }) => {
+        const email = input.email.toLowerCase().trim();
+        // Check if already exists
+        const existing = await db.getAppUserByEmail(email);
+        if (existing) throw new Error("An account with this email already exists.");
+
+        const passwordHash = await bcrypt.hash(input.password, 10);
+        const isAdmin = email === ADMIN_EMAIL;
+
+        const id = await db.createAppUser({
+          name: input.name.trim(),
+          email,
+          passwordHash,
+          role: isAdmin ? "admin" : "member",
+          status: isAdmin ? "approved" : "pending",
+        });
+
+        const user = await db.getAppUserById(id as number);
+        if (!user) throw new Error("Failed to create account.");
+
+        const token = createAppToken(user.id, user.email);
+        return {
+          token,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status },
+        };
+      }),
+
+    login: publicProcedure
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(1),
+      }))
+      .mutation(async ({ input }) => {
+        const email = input.email.toLowerCase().trim();
+        const user = await db.getAppUserByEmail(email);
+        if (!user) throw new Error("Invalid email or password.");
+
+        const valid = await bcrypt.compare(input.password, user.passwordHash);
+        if (!valid) throw new Error("Invalid email or password.");
+
+        const token = createAppToken(user.id, user.email);
+        return {
+          token,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status },
+        };
+      }),
+
+    getProfile: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Invalid or expired session.");
+        const user = await db.getAppUserById(parsed.userId);
+        if (!user) throw new Error("User not found.");
+        return { id: user.id, name: user.name, email: user.email, role: user.role, status: user.status };
+      }),
+  }),
+
+  // ─── Team Management (admin only) ─────────────────────────────────────────
+  team: router({
+    pendingApprovals: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const admin = await db.getAppUserById(parsed.userId);
+        if (!admin || admin.role !== "admin") throw new Error("Admin access required.");
+        return db.getPendingAppUsers();
+      }),
+
+    allMembers: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const admin = await db.getAppUserById(parsed.userId);
+        if (!admin || admin.role !== "admin") throw new Error("Admin access required.");
+        return db.getAllAppUsers();
+      }),
+
+    approveUser: publicProcedure
+      .input(z.object({ token: z.string(), userId: z.number(), action: z.enum(["approve", "reject"]) }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const admin = await db.getAppUserById(parsed.userId);
+        if (!admin || admin.role !== "admin") throw new Error("Admin access required.");
+
+        await db.updateAppUser(input.userId, {
+          status: input.action === "approve" ? "approved" : "rejected",
+          approvedBy: admin.id,
+          approvedAt: new Date(),
+        });
+        return { success: true };
+      }),
+  }),
+
+  // ─── Daily MIS Reports ─────────────────────────────────────────────────────
+  mis: router({
+    submit: publicProcedure
+      .input(z.object({
+        token: z.string(),
+        reportDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        tasksCompleted: z.string().min(1),
+        hoursWorked: z.string().min(1),
+        titleReportsDone: z.number().int().min(0).default(0),
+        mortgageDeedsDone: z.number().int().min(0).default(0),
+        saleDeedsDone: z.number().int().min(0).default(0),
+        courtVisits: z.number().int().min(0).default(0),
+        clientMeetings: z.number().int().min(0).default(0),
+        notes: z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Please login to submit a report.");
+        const user = await db.getAppUserById(parsed.userId);
+        if (!user) throw new Error("User not found.");
+        if (user.status !== "approved") throw new Error("Your account is pending admin approval.");
+
+        const { token, ...reportData } = input;
+        // Check if report for this date already exists
+        const existing = await db.getMisReportByUserAndDate(parsed.userId, input.reportDate);
+        if (existing) {
+          await db.updateMisReport(existing.id, reportData);
+          return { id: existing.id, updated: true };
+        }
+        const id = await db.createMisReport({ ...reportData, userId: parsed.userId });
+        return { id, updated: false };
+      }),
+
+    myReports: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        return db.getMisReportsByUser(parsed.userId);
+      }),
+
+    allReports: publicProcedure
+      .input(z.object({ token: z.string() }))
+      .query(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        const admin = await db.getAppUserById(parsed.userId);
+        if (!admin || admin.role !== "admin") throw new Error("Admin access required.");
+        return db.getAllMisReports();
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ token: z.string(), id: z.number() }))
+      .mutation(async ({ input }) => {
+        const parsed = parseAppToken(input.token);
+        if (!parsed) throw new Error("Unauthorized.");
+        await db.deleteMisReport(input.id);
+        return { success: true };
+      }),
   }),
 
   // ─── Image Upload ──────────────────────────────────────────────────────────
@@ -153,7 +338,7 @@ export const appRouter = router({
       .mutation(({ input }) => db.deleteSaleDeed(input.id)),
   }),
 
-  // ─── AI Assistant (Gemini proxy) ───────────────────────────────────────────
+  // ─── AI Assistant ──────────────────────────────────────────────────────────
   ai: router({
     chat: publicProcedure
       .input(z.object({
@@ -174,7 +359,6 @@ export const appRouter = router({
 - Gujarat and Indian High Court judgments, Supreme Court of India case laws
 Always respond professionally. Cite relevant sections and case laws when applicable. Keep responses focused and practical for an advocate's daily practice.`;
 
-        // Convert Gemini-format history to OpenAI-format messages
         const historyMessages = input.history.map((h) => ({
           role: h.role === "model" ? ("assistant" as const) : ("user" as const),
           content: h.parts.map((p) => p.text).join(""),

@@ -39,3 +39,11 @@
 - [x] Make Dashboard stats cards clickable (navigate to respective screens)
 - [x] Make Dashboard All Sections cards clickable (navigate to respective screens)
 - [x] Fix AI Assistant: switched from Gemini API (quota exhausted) to built-in invokeLLM (always works, no quota issues)
+- [x] Create database tables: app_users (email, password hash, name, role, approval status), daily_mis_reports
+- [x] Build backend routes: register, login, logout, get profile, list pending users, approve/reject user
+- [x] Build backend routes: create MIS report, list MIS reports (admin sees all, member sees own)
+- [x] Build Profile screen with login form, register form, profile view, logout
+- [x] Admin panel: pending approvals, approve/reject, team member list
+- [x] MIS Report screen: daily work entry (tasks done, hours, notes) and history list
+- [x] Add Profile tab (6th tab) to bottom navigation
+- [x] Admin user patel8388@gmail.com auto-approved on register (role=admin, status=approved)

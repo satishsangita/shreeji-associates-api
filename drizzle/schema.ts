@@ -19,6 +19,48 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 /**
+ * App-level users with email/password login, roles, and approval flow.
+ * Separate from the OAuth users table above.
+ */
+export const appUsers = mysqlTable("app_users", {
+  id: int("id").autoincrement().primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+  role: mysqlEnum("role", ["admin", "member"]).default("member").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  approvedBy: int("approvedBy"),
+  approvedAt: timestamp("approvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AppUser = typeof appUsers.$inferSelect;
+export type InsertAppUser = typeof appUsers.$inferInsert;
+
+/**
+ * Daily MIS (Management Information System) work reports submitted by team members.
+ */
+export const dailyMisReports = mysqlTable("daily_mis_reports", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  reportDate: varchar("reportDate", { length: 20 }).notNull(), // YYYY-MM-DD
+  tasksCompleted: text("tasksCompleted").notNull(),
+  hoursWorked: varchar("hoursWorked", { length: 10 }).notNull(),
+  titleReportsDone: int("titleReportsDone").default(0),
+  mortgageDeedsDone: int("mortgageDeedsDone").default(0),
+  saleDeedsDone: int("saleDeedsDone").default(0),
+  courtVisits: int("courtVisits").default(0),
+  clientMeetings: int("clientMeetings").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type DailyMisReport = typeof dailyMisReports.$inferSelect;
+export type InsertDailyMisReport = typeof dailyMisReports.$inferInsert;
+
+/**
  * Title Report records
  */
 export const titleReports = mysqlTable("title_reports", {
