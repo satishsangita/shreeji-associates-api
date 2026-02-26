@@ -57,3 +57,4 @@
 - [x] Forgot Password / password reset: Change Password in Profile (user), Reset Member Password in Admin Panel (admin)
 - [x] Push notification to admin (notifyOwner) when new team member registers
 - [x] Show logged-in user name on Dashboard header (Welcome, [Name]) with initials avatar
+- [x] Fix splash screen blinking: replaced router.replace in useEffect with <Redirect> component in AuthGate, fixed hooks order in auth.tsx

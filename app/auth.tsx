@@ -7,12 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useAppAuth } from "@/lib/app-auth-context";
+import { Redirect } from "expo-router";
 
 type Screen = "login" | "register";
 
 export default function AuthScreen() {
   const colors = useColors();
-  const { login } = useAppAuth();
+  const { login, token, user, loading } = useAppAuth();
+
   const [screen, setScreen] = useState<Screen>("login");
 
   // Login form
@@ -31,6 +33,11 @@ export default function AuthScreen() {
 
   const loginMutation = trpc.appAuth.login.useMutation();
   const registerMutation = trpc.appAuth.register.useMutation();
+
+  // If already logged in and approved, redirect to main app (AFTER all hooks)
+  if (!loading && token && user && user.status === "approved") {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const handleLogin = async () => {
     if (!loginEmail.trim() || !loginPassword.trim()) {

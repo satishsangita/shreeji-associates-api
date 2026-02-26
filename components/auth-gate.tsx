@@ -1,6 +1,5 @@
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
-import { useEffect } from "react";
+import { Redirect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppAuth } from "@/lib/app-auth-context";
 import { useColors } from "@/hooks/use-colors";
@@ -8,22 +7,15 @@ import { useColors } from "@/hooks/use-colors";
 /**
  * AuthGate wraps the entire app.
  * - While loading: shows a splash/spinner
- * - Not logged in: redirects to /auth
+ * - Not logged in: redirects to /auth using <Redirect> (works on native, unlike router.replace in useEffect)
  * - Logged in but pending/rejected: shows a blocking screen
  * - Logged in and approved: renders children normally
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, token, loading, logout } = useAppAuth();
   const colors = useColors();
-  const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !token) {
-      router.replace("/auth" as any);
-    }
-  }, [loading, token]);
-
-  // Loading state
+  // Loading state — show splash while AsyncStorage is being read
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -36,13 +28,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Not logged in — show nothing (redirect handled by useEffect)
+  // Not logged in — use Redirect (safe for native, no router.replace in useEffect)
   if (!token || !user) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <Redirect href="/auth" />;
   }
 
   // Logged in but pending approval
@@ -80,7 +68,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.pendingContainer}>
-          <Text style={{ fontSize: 56, marginBottom: 16 }}>❌</Text>
+          <View style={[styles.logoCircle, { backgroundColor: colors.error + "20" }]}>
+            <Text style={[styles.logoText, { color: colors.error }]}>✕</Text>
+          </View>
           <Text style={[styles.pendingTitle, { color: colors.error }]}>Access Denied</Text>
           <Text style={[styles.pendingText, { color: colors.muted }]}>
             Your account registration was not approved.{"\n"}
@@ -98,7 +88,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Approved — render the app
+  // Approved — render the app normally
   return <>{children}</>;
 }
 
