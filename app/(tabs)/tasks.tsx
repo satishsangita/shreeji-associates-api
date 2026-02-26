@@ -8,6 +8,7 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useAppAuth } from "@/lib/app-auth-context";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { exportToExcel } from "@/lib/excel-export";
 
 type Priority = "low" | "medium" | "high";
 type TaskStatus = "pending" | "in_progress" | "completed";
@@ -73,6 +74,30 @@ export default function TasksScreen() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | TaskStatus>("all");
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    if (tasks.length === 0) { Alert.alert("No Data", "There are no tasks to export."); return; }
+    setExporting(true);
+    try {
+      const rows = tasks.map((t) => ({
+        "Task Title": t.title,
+        "Description": t.description ?? "",
+        "Assigned To": getMemberName(t.assignedTo),
+        "Priority": t.priority.charAt(0).toUpperCase() + t.priority.slice(1),
+        "Status": STATUS_LABELS[t.status],
+        "Due Date": t.dueDate ?? "",
+        "Created At": new Date(t.createdAt).toLocaleDateString(),
+        "Completed At": t.completedAt ? new Date(t.completedAt).toLocaleDateString() : "",
+      }));
+      const today = new Date().toISOString().slice(0, 10);
+      await exportToExcel(rows, "Task Assignments", `Tasks_Report_${today}`);
+    } catch (e: any) {
+      Alert.alert("Export Failed", e.message || "Could not export tasks.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Admin sees all tasks; member sees their own
   const { data: allTasks = [], refetch: refetchAll } = trpc.tasks.listAll.useQuery(undefined, { enabled: isAdmin });
@@ -157,12 +182,22 @@ export default function TasksScreen() {
           <Text style={styles.headerSub}>{isAdmin ? "Assign & manage team tasks" : "Your assigned tasks"}</Text>
         </View>
         {isAdmin && (
-          <TouchableOpacity
-            style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.2)" }]}
-            onPress={openAdd} activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>+ Assign Task</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.15)" }]}
+              onPress={handleExport} activeOpacity={0.8} disabled={exporting}
+            >
+              {exporting
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Text style={styles.addBtnText}>⬇ Export</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.addBtn, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+              onPress={openAdd} activeOpacity={0.8}
+            >
+              <Text style={styles.addBtnText}>+ Assign Task</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 

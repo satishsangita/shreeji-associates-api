@@ -66,3 +66,4 @@
 - [x] Auto-generate daily MIS report from actual Title/Mortgage/Sale deed data (count per user per day)
 - [x] Add task assignment: admin assigns tasks to team members with due date and priority
 - [x] Add team member task list screen showing assigned tasks
+- [x] Add Excel export for Tasks screen (admin downloads all task assignments and statuses)
