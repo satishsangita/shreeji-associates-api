@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
   StyleSheet, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform,
@@ -44,6 +44,21 @@ export default function MisReportScreen() {
   const [exporting, setExporting] = useState(false);
 
   const submitMutation = trpc.mis.submit.useMutation();
+
+  // Auto-populate deed counts from actual database records for the selected date
+  const autoSummaryQuery = trpc.mis.autoSummary.useQuery(
+    { userId: user?.id ?? 0, reportDate },
+    { enabled: !!user && tab === "submit" },
+  );
+
+  // When auto-summary loads, update the deed count fields
+  useEffect(() => {
+    if (autoSummaryQuery.data) {
+      setTitleReportsDone(String(autoSummaryQuery.data.titleReports));
+      setMortgageDeedsDone(String(autoSummaryQuery.data.mortgageDeeds));
+      setSaleDeedsDone(String(autoSummaryQuery.data.saleDeeds));
+    }
+  }, [autoSummaryQuery.data]);
 
   const handleExportMyReports = async () => {
     const reports = myReportsQuery.data ?? [];
@@ -318,6 +333,15 @@ export default function MisReportScreen() {
                   />
                 </View>
 
+                {/* Auto-fill indicator */}
+                <View style={[styles.autoFillBanner, { backgroundColor: colors.primary + "12", borderColor: colors.primary + "30" }]}>
+                  <Text style={{ fontSize: 14 }}>🔄</Text>
+                  <Text style={[styles.autoFillText, { color: colors.primary }]}>
+                    {autoSummaryQuery.isLoading
+                      ? "Loading deed counts from database..."
+                      : "Deed counts auto-filled from today's records. Adjust if needed."}
+                  </Text>
+                </View>
                 <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>Work Counts (tap +/− to adjust)</Text>
                 <View style={styles.numGrid}>
                   <NumInput label="Title Reports" value={titleReportsDone} onChange={setTitleReportsDone} />
@@ -505,4 +529,6 @@ const styles = StyleSheet.create({
   exportCount: { fontSize: 13 },
   exportBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   exportBtnText: { fontSize: 13, fontWeight: "700", color: "#FFFFFF" },
+  autoFillBanner: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, marginBottom: 12 },
+  autoFillText: { flex: 1, fontSize: 12, fontWeight: "500", lineHeight: 16 },
 });

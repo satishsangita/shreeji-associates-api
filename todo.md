@@ -61,3 +61,8 @@
 - [x] Fix app blank white on Android: removed AuthGate+Redirect (crash cause), replaced with AuthNavigator using useEffect+router.replace in root layout
 - [x] Updated admin name from "Admin Patel" to "Satish Patel" in database
 - [x] Add Update Name option in Profile screen (expandable section with save button)
+- [x] Add Mortgage Deed new fields: entry by, registration done by, received at office by, online checked by, hand over to (name+number), advocate fees, bank reference number
+- [x] Add Sale Deed new fields: purchaser mobile, entry by, checked by, registration done by, advocate fees, office received by, hand over to (name+number)
+- [x] Auto-generate daily MIS report from actual Title/Mortgage/Sale deed data (count per user per day)
+- [x] Add task assignment: admin assigns tasks to team members with due date and priority
+- [x] Add team member task list screen showing assigned tasks

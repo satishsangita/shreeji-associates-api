@@ -22,6 +22,15 @@ interface FormState {
   subRegistrarOffice: string;
   mortgagePaymentScreenshot: string;
   mortgageReference: string;
+  // New fields
+  entryBy: string;
+  registrationDoneBy: string;
+  receivedAtOfficeBy: string;
+  onlineCheckedBy: string;
+  handOverToName: string;
+  handOverToNumber: string;
+  advocateFees: string;
+  bankReferenceNumber: string;
 }
 
 type MortgageRecord = {
@@ -37,6 +46,14 @@ type MortgageRecord = {
   subRegistrarOffice?: string | null;
   mortgagePaymentScreenshot?: string | null;
   mortgageReference?: string | null;
+  entryBy?: string | null;
+  registrationDoneBy?: string | null;
+  receivedAtOfficeBy?: string | null;
+  onlineCheckedBy?: string | null;
+  handOverToName?: string | null;
+  handOverToNumber?: string | null;
+  advocateFees?: string | null;
+  bankReferenceNumber?: string | null;
   createdAt: Date;
 };
 
@@ -45,6 +62,9 @@ const EMPTY_FORM: FormState = {
   propertyDetails: "", paymentDetails: "", appointmentDate: "",
   mortgageDeedNumber: "", subRegistrarOffice: "",
   mortgagePaymentScreenshot: "", mortgageReference: "",
+  entryBy: "", registrationDoneBy: "", receivedAtOfficeBy: "",
+  onlineCheckedBy: "", handOverToName: "", handOverToNumber: "",
+  advocateFees: "", bankReferenceNumber: "",
 };
 
 export default function MortgageDeedScreen() {
@@ -75,6 +95,10 @@ export default function MortgageDeedScreen() {
       paymentDetails: r.paymentDetails ?? "", appointmentDate: r.appointmentDate ?? "",
       mortgageDeedNumber: r.mortgageDeedNumber ?? "", subRegistrarOffice: r.subRegistrarOffice ?? "",
       mortgagePaymentScreenshot: r.mortgagePaymentScreenshot ?? "", mortgageReference: r.mortgageReference ?? "",
+      entryBy: r.entryBy ?? "", registrationDoneBy: r.registrationDoneBy ?? "",
+      receivedAtOfficeBy: r.receivedAtOfficeBy ?? "", onlineCheckedBy: r.onlineCheckedBy ?? "",
+      handOverToName: r.handOverToName ?? "", handOverToNumber: r.handOverToNumber ?? "",
+      advocateFees: r.advocateFees ?? "", bankReferenceNumber: r.bankReferenceNumber ?? "",
     });
     setEditRecord(r);
     setModalVisible(true);
@@ -129,6 +153,10 @@ export default function MortgageDeedScreen() {
         paymentDetails: form.paymentDetails || undefined, appointmentDate: form.appointmentDate || undefined,
         mortgageDeedNumber: form.mortgageDeedNumber || undefined, subRegistrarOffice: form.subRegistrarOffice || undefined,
         mortgagePaymentScreenshot: form.mortgagePaymentScreenshot || undefined, mortgageReference: form.mortgageReference || undefined,
+        entryBy: form.entryBy || undefined, registrationDoneBy: form.registrationDoneBy || undefined,
+        receivedAtOfficeBy: form.receivedAtOfficeBy || undefined, onlineCheckedBy: form.onlineCheckedBy || undefined,
+        handOverToName: form.handOverToName || undefined, handOverToNumber: form.handOverToNumber || undefined,
+        advocateFees: form.advocateFees || undefined, bankReferenceNumber: form.bankReferenceNumber || undefined,
       };
       if (editRecord) { await updateMutation.mutateAsync({ id: editRecord.id, ...payload }); }
       else { await createMutation.mutateAsync(payload); }
@@ -156,6 +184,14 @@ export default function MortgageDeedScreen() {
       "Mortgage Deed No.": r.mortgageDeedNumber || "",
       "Sub Registrar Office": r.subRegistrarOffice || "",
       "Mortgage Reference": r.mortgageReference || "",
+      "Bank Reference No.": r.bankReferenceNumber || "",
+      "Entry By": r.entryBy || "",
+      "Registration Done By": r.registrationDoneBy || "",
+      "Received at Office By": r.receivedAtOfficeBy || "",
+      "Online Checked By": r.onlineCheckedBy || "",
+      "Advocate Fees": r.advocateFees || "",
+      "Hand Over To Name": r.handOverToName || "",
+      "Hand Over To Number": r.handOverToNumber || "",
       "Date Added": new Date(r.createdAt).toLocaleDateString("en-IN"),
     }));
     exportToExcel(exportData, "Mortgage Deeds", "MortgageDeeds_ShreejiAssociates");
@@ -248,6 +284,13 @@ export default function MortgageDeedScreen() {
                     {item.mortgageDeedNumber ? <DetailRow label="Deed Number" value={item.mortgageDeedNumber} colors={colors} /> : null}
                     {item.subRegistrarOffice ? <DetailRow label="Sub Registrar Office" value={item.subRegistrarOffice} colors={colors} /> : null}
                     {item.mortgageReference ? <DetailRow label="Mortgage Reference" value={item.mortgageReference} colors={colors} /> : null}
+                    {item.bankReferenceNumber ? <DetailRow label="Bank Reference No." value={item.bankReferenceNumber} colors={colors} /> : null}
+                    {item.entryBy ? <DetailRow label="Entry By" value={item.entryBy} colors={colors} /> : null}
+                    {item.registrationDoneBy ? <DetailRow label="Registration Done By" value={item.registrationDoneBy} colors={colors} /> : null}
+                    {item.receivedAtOfficeBy ? <DetailRow label="Received at Office By" value={item.receivedAtOfficeBy} colors={colors} /> : null}
+                    {item.onlineCheckedBy ? <DetailRow label="Online Checked By" value={item.onlineCheckedBy} colors={colors} /> : null}
+                    {item.advocateFees ? <DetailRow label="Advocate Fees" value={item.advocateFees} colors={colors} /> : null}
+                    {item.handOverToName ? <DetailRow label="Hand Over To" value={`${item.handOverToName}${item.handOverToNumber ? ` (${item.handOverToNumber})` : ""}`} colors={colors} /> : null}
                     {item.mortgagePaymentScreenshot ? (
                       <View>
                         <Text style={[styles.detailLabel, { color: colors.muted }]}>Payment Screenshot</Text>
@@ -293,6 +336,18 @@ export default function MortgageDeedScreen() {
               <FormField label="Mortgage Deed Number" value={form.mortgageDeedNumber} onChangeText={set("mortgageDeedNumber")} placeholder="e.g. MD-2024-001" colors={colors} />
               <FormField label="Sub Registrar Office" value={form.subRegistrarOffice} onChangeText={set("subRegistrarOffice")} placeholder="e.g. SRO Ahmedabad-1" colors={colors} />
               <FormField label="Mortgage Reference" value={form.mortgageReference} onChangeText={set("mortgageReference")} placeholder="Reference number or note" colors={colors} />
+              <FormField label="Bank Reference Number" value={form.bankReferenceNumber} onChangeText={set("bankReferenceNumber")} placeholder="Bank's reference/file number" colors={colors} />
+
+              <SectionTitle title="Team & Processing" colors={colors} />
+              <FormField label="Entry By" value={form.entryBy} onChangeText={set("entryBy")} placeholder="Name of person who entered" colors={colors} />
+              <FormField label="Registration Done By" value={form.registrationDoneBy} onChangeText={set("registrationDoneBy")} placeholder="Name of person who did registration" colors={colors} />
+              <FormField label="Received at Office By" value={form.receivedAtOfficeBy} onChangeText={set("receivedAtOfficeBy")} placeholder="Name of person who received at office" colors={colors} />
+              <FormField label="Online Checked By" value={form.onlineCheckedBy} onChangeText={set("onlineCheckedBy")} placeholder="Name of person who checked online" colors={colors} />
+              <FormField label="Advocate Fees" value={form.advocateFees} onChangeText={set("advocateFees")} placeholder="e.g. ₹5,000" colors={colors} keyboardType="numeric" />
+
+              <SectionTitle title="Hand Over Details" colors={colors} />
+              <FormField label="Hand Over To (Name)" value={form.handOverToName} onChangeText={set("handOverToName")} placeholder="Person name" colors={colors} />
+              <FormField label="Hand Over To (Mobile)" value={form.handOverToNumber} onChangeText={set("handOverToNumber")} placeholder="Mobile number" colors={colors} keyboardType="phone-pad" />
 
               {/* Payment Screenshot Upload */}
               <Text style={[styles.fieldLabel, { color: colors.foreground, marginBottom: 6 }]}>Payment Screenshot</Text>

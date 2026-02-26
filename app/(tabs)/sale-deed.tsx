@@ -13,31 +13,50 @@ import { exportToExcel } from "@/lib/excel-export";
 interface FormState {
   sellerName: string;
   purchaserName: string;
+  purchaserMobile: string;
   propertyDetails: string;
   sroOffice: string;
   saleDeedNumber: string;
   saleDeedPayment: string;
   saleDeedPaymentReference: string;
   saleDeedPaymentScreenshot: string;
+  // New fields
+  entryBy: string;
+  checkedBy: string;
+  registrationDoneBy: string;
+  advocateFees: string;
+  officeReceivedBy: string;
+  handOverToName: string;
+  handOverToNumber: string;
 }
 
 type SaleDeedRecord = {
   id: number;
   sellerName: string;
   purchaserName: string;
+  purchaserMobile?: string | null;
   propertyDetails: string;
   sroOffice?: string | null;
   saleDeedNumber?: string | null;
   saleDeedPayment?: string | null;
   saleDeedPaymentReference?: string | null;
   saleDeedPaymentScreenshot?: string | null;
+  entryBy?: string | null;
+  checkedBy?: string | null;
+  registrationDoneBy?: string | null;
+  advocateFees?: string | null;
+  officeReceivedBy?: string | null;
+  handOverToName?: string | null;
+  handOverToNumber?: string | null;
   createdAt: Date;
 };
 
 const EMPTY_FORM: FormState = {
-  sellerName: "", purchaserName: "", propertyDetails: "",
+  sellerName: "", purchaserName: "", purchaserMobile: "", propertyDetails: "",
   sroOffice: "", saleDeedNumber: "", saleDeedPayment: "",
   saleDeedPaymentReference: "", saleDeedPaymentScreenshot: "",
+  entryBy: "", checkedBy: "", registrationDoneBy: "",
+  advocateFees: "", officeReceivedBy: "", handOverToName: "", handOverToNumber: "",
 };
 
 export default function SaleDeedScreen() {
@@ -64,10 +83,15 @@ export default function SaleDeedScreen() {
   const openEdit = (r: SaleDeedRecord) => {
     setForm({
       sellerName: r.sellerName, purchaserName: r.purchaserName,
+      purchaserMobile: r.purchaserMobile ?? "",
       propertyDetails: r.propertyDetails, sroOffice: r.sroOffice ?? "",
       saleDeedNumber: r.saleDeedNumber ?? "", saleDeedPayment: r.saleDeedPayment ?? "",
       saleDeedPaymentReference: r.saleDeedPaymentReference ?? "",
       saleDeedPaymentScreenshot: r.saleDeedPaymentScreenshot ?? "",
+      entryBy: r.entryBy ?? "", checkedBy: r.checkedBy ?? "",
+      registrationDoneBy: r.registrationDoneBy ?? "", advocateFees: r.advocateFees ?? "",
+      officeReceivedBy: r.officeReceivedBy ?? "", handOverToName: r.handOverToName ?? "",
+      handOverToNumber: r.handOverToNumber ?? "",
     });
     setEditRecord(r);
     setModalVisible(true);
@@ -118,10 +142,15 @@ export default function SaleDeedScreen() {
     try {
       const payload = {
         sellerName: form.sellerName, purchaserName: form.purchaserName,
+        purchaserMobile: form.purchaserMobile || undefined,
         propertyDetails: form.propertyDetails, sroOffice: form.sroOffice || undefined,
         saleDeedNumber: form.saleDeedNumber || undefined, saleDeedPayment: form.saleDeedPayment || undefined,
         saleDeedPaymentReference: form.saleDeedPaymentReference || undefined,
         saleDeedPaymentScreenshot: form.saleDeedPaymentScreenshot || undefined,
+        entryBy: form.entryBy || undefined, checkedBy: form.checkedBy || undefined,
+        registrationDoneBy: form.registrationDoneBy || undefined, advocateFees: form.advocateFees || undefined,
+        officeReceivedBy: form.officeReceivedBy || undefined, handOverToName: form.handOverToName || undefined,
+        handOverToNumber: form.handOverToNumber || undefined,
       };
       if (editRecord) { await updateMutation.mutateAsync({ id: editRecord.id, ...payload }); }
       else { await createMutation.mutateAsync(payload); }
@@ -141,11 +170,19 @@ export default function SaleDeedScreen() {
     const exportData = records.map((r) => ({
       "Seller Name": r.sellerName,
       "Purchaser Name": r.purchaserName,
+      "Purchaser Mobile": r.purchaserMobile || "",
       "Property Details": r.propertyDetails,
       "SRO Office": r.sroOffice || "",
       "Sale Deed Number": r.saleDeedNumber || "",
       "Sale Deed Payment": r.saleDeedPayment || "",
       "Payment Reference": r.saleDeedPaymentReference || "",
+      "Entry By": r.entryBy || "",
+      "Checked By": r.checkedBy || "",
+      "Registration Done By": r.registrationDoneBy || "",
+      "Advocate Fees": r.advocateFees || "",
+      "Office Received By": r.officeReceivedBy || "",
+      "Hand Over To Name": r.handOverToName || "",
+      "Hand Over To Number": r.handOverToNumber || "",
       "Date Added": new Date(r.createdAt).toLocaleDateString("en-IN"),
     }));
     exportToExcel(exportData, "Sale Deeds", "SaleDeeds_ShreejiAssociates");
@@ -239,6 +276,13 @@ export default function SaleDeedScreen() {
                     <DetailRow label="Property Details" value={item.propertyDetails} colors={colors} />
                     {item.saleDeedPayment ? <DetailRow label="Sale Deed Payment" value={item.saleDeedPayment} colors={colors} /> : null}
                     {item.saleDeedPaymentReference ? <DetailRow label="Payment Reference" value={item.saleDeedPaymentReference} colors={colors} /> : null}
+                    {item.purchaserMobile ? <DetailRow label="Purchaser Mobile" value={item.purchaserMobile} colors={colors} /> : null}
+                    {item.entryBy ? <DetailRow label="Entry By" value={item.entryBy} colors={colors} /> : null}
+                    {item.checkedBy ? <DetailRow label="Checked By" value={item.checkedBy} colors={colors} /> : null}
+                    {item.registrationDoneBy ? <DetailRow label="Registration Done By" value={item.registrationDoneBy} colors={colors} /> : null}
+                    {item.advocateFees ? <DetailRow label="Advocate Fees" value={item.advocateFees} colors={colors} /> : null}
+                    {item.officeReceivedBy ? <DetailRow label="Office Received By" value={item.officeReceivedBy} colors={colors} /> : null}
+                    {item.handOverToName ? <DetailRow label="Hand Over To" value={`${item.handOverToName}${item.handOverToNumber ? ` (${item.handOverToNumber})` : ""}`} colors={colors} /> : null}
                     {item.saleDeedPaymentScreenshot ? (
                       <View>
                         <Text style={[styles.detailLabel, { color: colors.muted }]}>Payment Screenshot</Text>
@@ -272,6 +316,7 @@ export default function SaleDeedScreen() {
               <SectionTitle title="Parties" colors={colors} />
               <FormField label="Seller Name *" value={form.sellerName} onChangeText={set("sellerName")} placeholder="Full name of seller / vendor" colors={colors} />
               <FormField label="Purchaser Name *" value={form.purchaserName} onChangeText={set("purchaserName")} placeholder="Full name of purchaser / buyer" colors={colors} />
+              <FormField label="Purchaser Mobile" value={form.purchaserMobile} onChangeText={set("purchaserMobile")} placeholder="Purchaser mobile number" colors={colors} keyboardType="phone-pad" />
 
               <SectionTitle title="Property Details" colors={colors} />
               <FormField label="Property Details *" value={form.propertyDetails} onChangeText={set("propertyDetails")} placeholder="Survey no, plot no, address, area, boundaries..." colors={colors} multiline />
@@ -281,6 +326,17 @@ export default function SaleDeedScreen() {
               <FormField label="Sale Deed Number" value={form.saleDeedNumber} onChangeText={set("saleDeedNumber")} placeholder="e.g. SD-2024-001" colors={colors} />
               <FormField label="Sale Deed Payment" value={form.saleDeedPayment} onChangeText={set("saleDeedPayment")} placeholder="Stamp duty, registration fee, total amount..." colors={colors} multiline />
               <FormField label="Sale Deed Payment Reference" value={form.saleDeedPaymentReference} onChangeText={set("saleDeedPaymentReference")} placeholder="Challan no, UTR, transaction ID..." colors={colors} />
+
+              <SectionTitle title="Team & Processing" colors={colors} />
+              <FormField label="Entry By" value={form.entryBy} onChangeText={set("entryBy")} placeholder="Name of person who entered" colors={colors} />
+              <FormField label="Checked By" value={form.checkedBy} onChangeText={set("checkedBy")} placeholder="Name of person who checked" colors={colors} />
+              <FormField label="Registration Done By" value={form.registrationDoneBy} onChangeText={set("registrationDoneBy")} placeholder="Name of person who did registration" colors={colors} />
+              <FormField label="Advocate Fees" value={form.advocateFees} onChangeText={set("advocateFees")} placeholder="e.g. ₹5,000" colors={colors} keyboardType="numeric" />
+              <FormField label="Office Received By" value={form.officeReceivedBy} onChangeText={set("officeReceivedBy")} placeholder="Name of person who received at office" colors={colors} />
+
+              <SectionTitle title="Hand Over Details" colors={colors} />
+              <FormField label="Hand Over To (Name)" value={form.handOverToName} onChangeText={set("handOverToName")} placeholder="Person name" colors={colors} />
+              <FormField label="Hand Over To (Mobile)" value={form.handOverToNumber} onChangeText={set("handOverToNumber")} placeholder="Mobile number" colors={colors} keyboardType="phone-pad" />
 
               {/* Payment Screenshot Upload */}
               <Text style={[styles.fieldLabel, { color: colors.foreground, marginBottom: 6 }]}>Payment Screenshot</Text>

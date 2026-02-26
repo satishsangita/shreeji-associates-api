@@ -93,6 +93,15 @@ export const mortgageDeeds = mysqlTable("mortgage_deeds", {
   subRegistrarOffice: varchar("subRegistrarOffice", { length: 255 }),
   mortgagePaymentScreenshot: text("mortgagePaymentScreenshot"),
   mortgageReference: varchar("mortgageReference", { length: 255 }),
+  // New fields
+  entryBy: varchar("entryBy", { length: 255 }),
+  registrationDoneBy: varchar("registrationDoneBy", { length: 255 }),
+  receivedAtOfficeBy: varchar("receivedAtOfficeBy", { length: 255 }),
+  onlineCheckedBy: varchar("onlineCheckedBy", { length: 255 }),
+  handOverToName: varchar("handOverToName", { length: 255 }),
+  handOverToNumber: varchar("handOverToNumber", { length: 20 }),
+  advocateFees: varchar("advocateFees", { length: 100 }),
+  bankReferenceNumber: varchar("bankReferenceNumber", { length: 100 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -107,15 +116,44 @@ export const saleDeeds = mysqlTable("sale_deeds", {
   id: int("id").autoincrement().primaryKey(),
   sellerName: varchar("sellerName", { length: 255 }).notNull(),
   purchaserName: varchar("purchaserName", { length: 255 }).notNull(),
+  purchaserMobile: varchar("purchaserMobile", { length: 20 }),
   propertyDetails: text("propertyDetails").notNull(),
   sroOffice: varchar("sroOffice", { length: 255 }),
   saleDeedNumber: varchar("saleDeedNumber", { length: 100 }),
   saleDeedPayment: varchar("saleDeedPayment", { length: 100 }),
   saleDeedPaymentReference: varchar("saleDeedPaymentReference", { length: 255 }),
   saleDeedPaymentScreenshot: text("saleDeedPaymentScreenshot"),
+  // New fields
+  entryBy: varchar("entryBy", { length: 255 }),
+  checkedBy: varchar("checkedBy", { length: 255 }),
+  registrationDoneBy: varchar("registrationDoneBy", { length: 255 }),
+  advocateFees: varchar("advocateFees", { length: 100 }),
+  officeReceivedBy: varchar("officeReceivedBy", { length: 255 }),
+  handOverToName: varchar("handOverToName", { length: 255 }),
+  handOverToNumber: varchar("handOverToNumber", { length: 20 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
 export type SaleDeed = typeof saleDeeds.$inferSelect;
 export type InsertSaleDeed = typeof saleDeeds.$inferInsert;
+
+/**
+ * Tasks assigned by admin to team members.
+ */
+export const tasks = mysqlTable("tasks", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  assignedTo: int("assignedTo").notNull(), // app_users.id
+  assignedBy: int("assignedBy").notNull(), // app_users.id (admin)
+  dueDate: varchar("dueDate", { length: 20 }), // YYYY-MM-DD
+  priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium").notNull(),
+  status: mysqlEnum("status", ["pending", "in_progress", "completed"]).default("pending").notNull(),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = typeof tasks.$inferInsert;

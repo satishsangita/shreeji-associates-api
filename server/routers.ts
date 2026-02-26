@@ -261,6 +261,10 @@ export const appRouter = router({
         await db.deleteMisReport(input.id);
         return { success: true };
       }),
+
+    autoSummary: publicProcedure
+      .input(z.object({ userId: z.number(), reportDate: z.string() }))
+      .query(({ input }) => db.getMisSummaryForUser(input.userId, input.reportDate)),
   }),
 
   // ─── Image Upload ──────────────────────────────────────────────────────────
@@ -331,6 +335,14 @@ export const appRouter = router({
         subRegistrarOffice: z.string().optional(),
         mortgagePaymentScreenshot: z.string().optional(),
         mortgageReference: z.string().optional(),
+        entryBy: z.string().optional(),
+        registrationDoneBy: z.string().optional(),
+        receivedAtOfficeBy: z.string().optional(),
+        onlineCheckedBy: z.string().optional(),
+        handOverToName: z.string().optional(),
+        handOverToNumber: z.string().optional(),
+        advocateFees: z.string().optional(),
+        bankReferenceNumber: z.string().optional(),
       }))
       .mutation(({ input }) => db.createMortgageDeed(input)),
 
@@ -348,6 +360,14 @@ export const appRouter = router({
         subRegistrarOffice: z.string().optional(),
         mortgagePaymentScreenshot: z.string().optional(),
         mortgageReference: z.string().optional(),
+        entryBy: z.string().optional(),
+        registrationDoneBy: z.string().optional(),
+        receivedAtOfficeBy: z.string().optional(),
+        onlineCheckedBy: z.string().optional(),
+        handOverToName: z.string().optional(),
+        handOverToNumber: z.string().optional(),
+        advocateFees: z.string().optional(),
+        bankReferenceNumber: z.string().optional(),
       }))
       .mutation(({ input }) => {
         const { id, ...data } = input;
@@ -367,12 +387,20 @@ export const appRouter = router({
       .input(z.object({
         sellerName: z.string().min(1),
         purchaserName: z.string().min(1),
+        purchaserMobile: z.string().optional(),
         propertyDetails: z.string().min(1),
         sroOffice: z.string().optional(),
         saleDeedNumber: z.string().optional(),
         saleDeedPayment: z.string().optional(),
         saleDeedPaymentReference: z.string().optional(),
         saleDeedPaymentScreenshot: z.string().optional(),
+        entryBy: z.string().optional(),
+        checkedBy: z.string().optional(),
+        registrationDoneBy: z.string().optional(),
+        advocateFees: z.string().optional(),
+        officeReceivedBy: z.string().optional(),
+        handOverToName: z.string().optional(),
+        handOverToNumber: z.string().optional(),
       }))
       .mutation(({ input }) => db.createSaleDeed(input)),
 
@@ -381,12 +409,20 @@ export const appRouter = router({
         id: z.number(),
         sellerName: z.string().min(1).optional(),
         purchaserName: z.string().min(1).optional(),
+        purchaserMobile: z.string().optional(),
         propertyDetails: z.string().min(1).optional(),
         sroOffice: z.string().optional(),
         saleDeedNumber: z.string().optional(),
         saleDeedPayment: z.string().optional(),
         saleDeedPaymentReference: z.string().optional(),
         saleDeedPaymentScreenshot: z.string().optional(),
+        entryBy: z.string().optional(),
+        checkedBy: z.string().optional(),
+        registrationDoneBy: z.string().optional(),
+        advocateFees: z.string().optional(),
+        officeReceivedBy: z.string().optional(),
+        handOverToName: z.string().optional(),
+        handOverToNumber: z.string().optional(),
       }))
       .mutation(({ input }) => {
         const { id, ...data } = input;
@@ -396,6 +432,60 @@ export const appRouter = router({
     delete: publicProcedure
       .input(z.object({ id: z.number() }))
       .mutation(({ input }) => db.deleteSaleDeed(input.id)),
+  }),
+
+  // ─── Tasks ────────────────────────────────────────────────────────────────
+  tasks: router({
+    listAll: publicProcedure.query(() => db.getAllTasks()),
+
+    listForUser: publicProcedure
+      .input(z.object({ userId: z.number() }))
+      .query(({ input }) => db.getTasksForUser(input.userId)),
+
+    create: publicProcedure
+      .input(z.object({
+        title: z.string().min(1),
+        description: z.string().optional(),
+        assignedTo: z.number(),
+        assignedBy: z.number(),
+        dueDate: z.string().optional(),
+        priority: z.enum(["low", "medium", "high"]).default("medium"),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.createTask(input);
+        return { id };
+      }),
+
+    updateStatus: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        status: z.enum(["pending", "in_progress", "completed"]),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        const updateData: any = { status: data.status };
+        if (data.status === "completed") updateData.completedAt = new Date();
+        await db.updateTask(id, updateData);
+      }),
+
+    update: publicProcedure
+      .input(z.object({
+        id: z.number(),
+        title: z.string().min(1).optional(),
+        description: z.string().optional(),
+        assignedTo: z.number().optional(),
+        dueDate: z.string().optional(),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        status: z.enum(["pending", "in_progress", "completed"]).optional(),
+      }))
+      .mutation(async ({ input }) => {
+        const { id, ...data } = input;
+        await db.updateTask(id, data);
+      }),
+
+    delete: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(({ input }) => db.deleteTask(input.id)),
   }),
 
   // ─── AI Assistant ──────────────────────────────────────────────────────────

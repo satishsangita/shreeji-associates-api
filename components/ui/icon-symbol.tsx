@@ -56,6 +56,8 @@ const MAPPING = {
   "printer.fill": "print",
   "mic.fill": "mic",
   "stop.fill": "stop",
+  "checklist": "checklist",
+  "person.badge.plus": "person-add",
 } as IconMapping;
 
 /**

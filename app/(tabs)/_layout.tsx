@@ -93,6 +93,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="tasks"
+        options={{
+          title: "Tasks",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="checklist" color={color} />
+          ),
+        }}
+      />
       {/* Hidden screens — navigated to programmatically */}
       <Tabs.Screen name="admin-panel" options={{ href: null }} />
       <Tabs.Screen name="mis-report" options={{ href: null }} />

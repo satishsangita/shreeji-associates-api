@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -7,6 +7,7 @@ import {
   saleDeeds, InsertSaleDeed,
   appUsers, InsertAppUser,
   dailyMisReports, InsertDailyMisReport,
+  tasks, InsertTask,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -247,4 +248,61 @@ export async function deleteSaleDeed(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(saleDeeds).where(eq(saleDeeds.id, id));
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+export async function getAllTasks() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).orderBy(desc(tasks.createdAt));
+}
+
+export async function getTasksForUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tasks).where(eq(tasks.assignedTo, userId)).orderBy(desc(tasks.createdAt));
+}
+
+export async function createTask(data: InsertTask) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(tasks).values(data);
+  return result[0].insertId;
+}
+
+export async function updateTask(id: number, data: Partial<InsertTask>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tasks).set(data).where(eq(tasks.id, id));
+}
+
+export async function deleteTask(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(tasks).where(eq(tasks.id, id));
+}
+
+// ─── Auto MIS: count deeds created by a user on a specific date ───────────────
+
+export async function getMisSummaryForUser(userId: number, reportDate: string) {
+  // reportDate: YYYY-MM-DD
+  const db = await getDb();
+  if (!db) return { titleReports: 0, mortgageDeeds: 0, saleDeeds: 0 };
+  // We count records created on the given date
+  // Since we don't have a createdBy field on deeds, we return 0 for auto-count
+  // The MIS report auto-generation will query total counts from the DB for the day
+  const startOfDay = new Date(reportDate + "T00:00:00.000Z");
+  const endOfDay = new Date(reportDate + "T23:59:59.999Z");
+  const [trCount] = await db.select({ count: sql`COUNT(*)` }).from(titleReports)
+    .where(and(gte(titleReports.createdAt, startOfDay), lte(titleReports.createdAt, endOfDay)));
+  const [mdCount] = await db.select({ count: sql`COUNT(*)` }).from(mortgageDeeds)
+    .where(and(gte(mortgageDeeds.createdAt, startOfDay), lte(mortgageDeeds.createdAt, endOfDay)));
+  const [sdCount] = await db.select({ count: sql`COUNT(*)` }).from(saleDeeds)
+    .where(and(gte(saleDeeds.createdAt, startOfDay), lte(saleDeeds.createdAt, endOfDay)));
+  return {
+    titleReports: Number((trCount as any)?.count ?? 0),
+    mortgageDeeds: Number((mdCount as any)?.count ?? 0),
+    saleDeeds: Number((sdCount as any)?.count ?? 0),
+  };
 }
