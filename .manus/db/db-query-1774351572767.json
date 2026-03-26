@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE app_users SET passwordHash = '$2b$10$kr45HDgxJKmax3jKVEogEuOa9Nh7AxHINnEv2epKvVM8oSul.vn6q' WHERE email = 'patel8388@gmail.com';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 1j7ZhzGuhaFGuS6.root --database BkuyPoD4AgGm8RhSHRpVMT --execute UPDATE app_users SET passwordHash = '$2b$10$kr45HDgxJKmax3jKVEogEuOa9Nh7AxHINnEv2epKvVM8oSul.vn6q' WHERE email = 'patel8388@gmail.com';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1585
+}
